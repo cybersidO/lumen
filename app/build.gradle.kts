@@ -46,6 +46,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
+        // Required by Readium's AARs — the build refuses to package them without it.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     packaging {
@@ -53,6 +55,13 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+}
+
+ksp {
+    // Schemas are committed. Highlights are the durable asset (§4), and a migration test
+    // needs the old schema on disk to migrate *from*.
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.generateKotlin", "true")
 }
 
 kotlin {
@@ -85,11 +94,23 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     ksp(libs.hilt.compiler)
 
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    implementation(libs.coil.compose)
+
+    implementation(libs.readium.shared)
+    implementation(libs.readium.streamer)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
+
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
+
+    androidTestImplementation(libs.androidx.room.testing)
 
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.espresso.core)

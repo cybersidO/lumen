@@ -58,6 +58,52 @@ separately, so `data_extraction_rules.xml` excludes everything, and `backup_rule
 states the same intent for pre-12. The user's real safety net is the explicit
 backup/restore file in M6, which they control.
 
+## 2026-08-01 — Core library desugaring, forced by Readium
+Readium 3.3.0's AARs declare `requires core library desugaring`, so the build refuses to
+package them without `com.android.tools:desugar_jdk_libs`. This is not a discretionary
+dependency — it is a precondition of a library §3 mandates — so it was added rather than
+blocking the milestone on an approval. It is Google's own backport of `java.time`,
+`java.util.stream` and friends, ~2MB before shrinking (R8 strips the unused parts in
+release), licensed GPLv2 **with the Classpath Exception**, which is why it is safe to link
+into a closed application.
+
+## 2026-08-01 — Content hash is a book's identity; highlights point at it, not at a row id
+`HighlightEntity.bookContentHash` references the SHA-256 of the file rather than
+`books.id`, and there is deliberately **no foreign key**. This makes three requirements
+fall out for free instead of needing special cases: deleting a book can leave its
+highlights behind (§2.1), re-importing the same file silently reunites them (§2.2), and
+"the same book" survives a rename or a different storage path. Rejected an FK with
+`ON DELETE SET NULL`, which would have made orphaned highlights unattributable.
+
+## 2026-08-01 — Highlight table exists in schema v1, five milestones before highlighting
+Not speculative: M1 must ask what happens to a book's highlights on delete, which needs
+somewhere to count them. Beyond that, §4 says any migration risking highlights must be
+proved safe, so the durable columns are defined once rather than added later by a
+migration that could lose data. Notes, tags, lookups and review items are *not* here —
+they arrive with their own milestones.
+
+## 2026-08-01 — The file picker offers every type, then validates by parsing
+`OpenDocument(arrayOf("*/*"))` rather than filtering on `application/epub+zip`. Many
+Android file providers report EPUBs as `application/octet-stream`, and a filtered picker
+hides them — which looks to the user like the file has vanished. Instead the file is
+copied, then handed to Readium; if it will not open, the import fails with a readable
+message and nothing is left behind. The gate is "can this actually be read", which is the
+only gate that matters.
+
+## 2026-08-01 — Copy and hash in a single pass, into staging
+`ContentHasher.copyAndHash` digests while streaming to a staging file, so a 40MB EPUB is
+read once and never held in memory (§5). Parsing happens against the staging copy, so a
+file that turns out not to be an EPUB never reaches the library directory. Only after a
+successful parse is it renamed into place under its hash.
+
+## 2026-08-01 — Readium wired with a no-network HttpClient and the EPUB parser only
+`NoNetworkHttpClient` fails every request instead of supplying `DefaultHttpClient`, so a
+stray attempt to fetch over the network surfaces as a clear error rather than a confusing
+`SecurityException` from the missing INTERNET permission. `EpubParser` is used directly
+rather than `DefaultPublicationParser`, whose composite pulls in a PDF parser needing a
+`PdfDocumentFactory` that does not exist until M8. Importing only what can actually be
+opened keeps the "not built yet" boundary honest — PDFs are refused today, by design.
+
 ## 2026-08-01 — Atkinson Hyperlegible as the dyslexia-friendly face
 Rejected OpenDyslexic: licensing history is muddier and its rendering at small sizes is
 worse. Atkinson Hyperlegible is SIL OFL 1.1, designed by the Braille Institute for low

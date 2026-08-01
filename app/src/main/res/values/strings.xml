@@ -7,7 +7,40 @@
     <string name="library_empty_title">No books yet</string>
     <string name="library_empty_body">Import an EPUB or PDF to get started. Books are copied into Lumen\'s private storage, so moving the original file won\'t break anything.</string>
     <string name="library_import">Import a book</string>
-    <string name="library_import_not_built">Import isn\'t built yet — it arrives in M1.</string>
+    <string name="library_search">Search title or author</string>
+    <string name="library_search_clear">Clear search</string>
+    <string name="library_no_matches">Nothing matches “%1$s”</string>
+    <string name="library_sort">Sort</string>
+    <string name="library_sort_recent">Recent</string>
+    <string name="library_sort_title">Title</string>
+    <string name="library_sort_author">Author</string>
+    <string name="library_unknown_author">Unknown author</string>
+    <string name="library_progress">%1$d%% read</string>
+    <string name="library_importing">Importing…</string>
+    <string name="library_importing_copying">Copying %1$s</string>
+    <string name="library_importing_parsing">Reading the book\'s details…</string>
+
+    <string name="library_open_not_built">The reader isn\'t built yet — it arrives in M2.</string>
+    <string name="library_msg_imported">Added “%1$s”</string>
+    <string name="library_msg_already_present">“%1$s” is already in your library</string>
+    <string name="library_msg_deleted">Deleted “%1$s”</string>
+    <plurals name="library_msg_deleted_kept">
+        <item quantity="one">Deleted “%1$s” — kept %2$d highlight</item>
+        <item quantity="other">Deleted “%1$s” — kept %2$d highlights</item>
+    </plurals>
+
+    <!-- Delete -->
+    <string name="delete_title">Delete “%1$s”?</string>
+    <string name="delete_body_no_highlights">The book file will be removed from Lumen. The original file on your device isn\'t touched.</string>
+    <plurals name="delete_body_with_highlights">
+        <item quantity="one">This book has %1$d highlight. What should happen to it?</item>
+        <item quantity="other">This book has %1$d highlights. What should happen to them?</item>
+    </plurals>
+    <string name="delete_keep_highlights">Keep highlights</string>
+    <string name="delete_keep_highlights_hint">They come back if you import this book again.</string>
+    <string name="delete_remove_highlights">Delete highlights too</string>
+    <string name="delete_confirm">Delete book</string>
+    <string name="delete_cancel">Cancel</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
