@@ -1,0 +1,22 @@
+# --- Signing material: NEVER commit. See README "Signing". ---
+*.jks
+*.keystore
+keystore.properties
+
+# --- Gradle / build ---
+.gradle/
+build/
+local.properties
+captures/
+.cxx/
+
+# --- IDE ---
+.idea/
+*.iml
+.kotlin/
+
+# --- OS ---
+.DS_Store
+
+# --- Large bundled assets fetched by tools/ scripts, not source ---
+app/src/main/assets/dictionary/*.db
