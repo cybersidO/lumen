@@ -20,7 +20,6 @@
     <string name="library_importing_copying">Copying %1$s</string>
     <string name="library_importing_parsing">Reading the book\'s details…</string>
 
-    <string name="library_open_not_built">The reader isn\'t built yet — it arrives in M2.</string>
     <string name="library_msg_imported">Added “%1$s”</string>
     <string name="library_msg_already_present">“%1$s” is already in your library</string>
     <string name="library_msg_deleted">Deleted “%1$s”</string>
@@ -41,6 +40,21 @@
     <string name="delete_remove_highlights">Delete highlights too</string>
     <string name="delete_confirm">Delete book</string>
     <string name="delete_cancel">Cancel</string>
+
+    <!-- Reader -->
+    <string name="reader_toc">Contents</string>
+    <string name="reader_toc_empty">This book has no table of contents.</string>
+    <string name="reader_typography">Text settings</string>
+    <string name="reader_progress">%1$d%% through the book</string>
+    <string name="reader_back_to_library">Back to library</string>
+    <string name="reader_font">Font</string>
+    <string name="reader_font_size">Size</string>
+    <string name="reader_line_height">Line height</string>
+    <!-- Formatted by the platform, so it follows the reader's locale (1.40 vs 1,40). -->
+    <string name="reader_line_height_value">%1$.2f</string>
+    <string name="reader_margins">Margins</string>
+    <string name="reader_alignment">Alignment</string>
+    <string name="reader_hyphenation">Hyphenation</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

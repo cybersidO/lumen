@@ -104,6 +104,35 @@ rather than `DefaultPublicationParser`, whose composite pulls in a PDF parser ne
 `PdfDocumentFactory` that does not exist until M8. Importing only what can actually be
 opened keeps the "not built yet" boundary honest — PDFs are refused today, by design.
 
+## 2026-08-01 — Readium's navigator Fragment hosted inside Compose, still one Activity
+Readium renders EPUBs from an `EpubNavigatorFragment`, so the app needs a FragmentManager.
+`MainActivity` became a `FragmentActivity`; the architecture is still single-activity (§3).
+The navigator can only be built by the `FragmentFactory` Readium returns, which needs an
+already-open `Publication` — asynchronous file I/O. So `MainActivity` **drops saved fragment
+state** (`android:support:fragments`) before `super.onCreate`, otherwise the FragmentManager
+tries to restore a navigator after process death with nothing to build it from, and crashes.
+Discarding it costs nothing: fragment state was never the source of truth for the reading
+position — the locator in the database is, which is exactly what §M2 requires to survive a
+process kill. Rejected a separate `ReaderActivity` (violates §3) and rejected keeping the
+publication in the ViewModel (recreated on rotation, which would reopen the file and drop
+the position).
+
+## 2026-08-01 — Taps go through Readium's input pipeline, never a Compose overlay
+A transparent `Modifier.clickable` Box over the navigator to toggle the chrome **silently
+broke page turning** — the navigator is a WebView, and anything layered above it eats the
+touches before the WebView sees them. There is no error; pages simply stop turning. Taps
+now register through `EpubNavigatorFragment.addInputListener`, returning `false` so Readium
+still acts on them. M3's gesture layer must respect the same constraint.
+
+## 2026-08-01 — Book page colours are passed to Readium explicitly
+Readium's LIGHT/DARK/SEPIA themes carry their own colours, so the page sat on pure black
+inside a `#121212` app. §2.7 asks for one theme across the app *and* the rendered book, so
+the exact Lumen palette colours are always passed as `backgroundColor`/`textColor`. It is
+also the only way to get AMOLED at all — Readium has DARK, but no AMOLED.
+
+`publisherStyles` is off for the same reason: with it on, a book carrying its own CSS
+ignores the font size and line height the reader just changed.
+
 ## 2026-08-01 — Atkinson Hyperlegible as the dyslexia-friendly face
 Rejected OpenDyslexic: licensing history is muddier and its rendering at small sizes is
 worse. Atkinson Hyperlegible is SIL OFL 1.1, designed by the Braille Institute for low

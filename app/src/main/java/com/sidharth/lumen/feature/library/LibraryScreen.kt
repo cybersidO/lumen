@@ -63,6 +63,7 @@ const val LibrarySortButtonTag = "library_sort_button"
 @Composable
 fun LibraryScreen(
     onOpenSettings: () -> Unit,
+    onOpenBook: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
@@ -162,7 +163,7 @@ fun LibraryScreen(
                 state.hasNoMatches -> NoMatches(state.query)
                 else -> BookGrid(
                     books = state.books,
-                    onOpen = viewModel::requestOpen,
+                    onOpen = { book -> onOpenBook(book.id) },
                     onLongPress = viewModel::requestDelete,
                 )
             }
@@ -199,7 +200,6 @@ private fun resolveMessage(message: LibraryMessage): String = when (message) {
         stringResource(R.string.library_msg_deleted, message.title)
     }
 
-    is LibraryMessage.ReaderNotBuilt -> stringResource(R.string.library_open_not_built)
 }
 
 @Composable

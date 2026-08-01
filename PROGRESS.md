@@ -6,7 +6,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 |---|---|---|---|
 | M0 | Skeleton — scaffold, Hilt, Compose, M3, nav, 4 themes, empty Library | ☑ | 2026-08-01 · verified on emulator |
 | M1 | Library — SAF import, hashing, covers, Room v1, grid, sort/search | ☑ | 2026-08-01 · EPUB only; PDF import lands with its reader in M8 |
-| M2 | Reader core — Readium, pagination, TOC, progress, typography | ☐ | |
+| M2 | Reader core — Readium, pagination, TOC, progress, typography | ☑ | 2026-08-01 · position restore is position-granular, see below |
 | M3 | Gestures — full §2.3 layer, edge drags, zone-preview settings | ☐ | riskiest milestone |
 | M4 | Highlighting — selection toolbar, locator anchoring, notes, tags | ☐ | |
 | M5 | Dictionary — OEWN DB, Morphy lemmatizer, sheet, lookup log | ☐ | |
@@ -71,6 +71,27 @@ specify every M3 role.
 
 **Build times are the main friction.** A cold full compile is over an hour on this machine;
 incremental is ~1 minute. Plan milestone work around not needing many cold builds.
+
+## M2 verification — 2026-08-01
+
+| Command | Result |
+|---|---|
+| `./gradlew :app:assembleDebug` | BUILD SUCCESSFUL |
+| `./gradlew test` | 33 tests, 0 failures |
+| `./gradlew connectedAndroidTest` | 15 tests, 0 failures |
+| `./gradlew lint` | 0 errors, 3 warnings (`NewerVersionAvailable`, deliberate pins) |
+
+Done-when, checked by hand on the emulator against a real EPUB:
+- Read several pages, `adb shell am kill`, relaunched, reopened the book → **same page**,
+  identical locator (`OPS/section-0003.html`, position 4).
+- Raised the font size well past double → still the same resource and position, progress
+  unchanged.
+
+**Honest limit on position restore.** Readium anchors to its position list, roughly one
+position per ~1024 characters. After a large font-size change the reader lands on the same
+*position*, not the same line — visible text can shift by a paragraph or two within the
+chapter. Fine for reading; M4's highlights use the finer text-quote selectors, where
+exactness actually matters.
 
 ## Open questions for the owner
 - **Disk is at 95% (~24GB free)**, down from 39GB at M0. The Android toolchain accounts for

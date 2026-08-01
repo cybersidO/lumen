@@ -89,6 +89,7 @@ dependencies {
 
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.fragment.ktx)
 
     implementation(libs.hilt.android)
     implementation(libs.androidx.hilt.navigation.compose)
@@ -102,6 +103,7 @@ dependencies {
 
     implementation(libs.readium.shared)
     implementation(libs.readium.streamer)
+    implementation(libs.readium.navigator)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     implementation(libs.kotlinx.coroutines.android)

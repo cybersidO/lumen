@@ -49,7 +49,6 @@ sealed interface LibraryMessage {
         val keptHighlights: Int,
     ) : LibraryMessage
 
-    data class ReaderNotBuilt(override val id: Long) : LibraryMessage
 }
 
 @HiltViewModel
@@ -110,15 +109,6 @@ class LibraryViewModel @Inject constructor(
                 }
             }
         }
-    }
-
-    /**
-     * Tapping a book is wired but has nothing to open yet. It says so instead of silently
-     * doing nothing, and deliberately does *not* stamp lastOpenedAt — that would reorder
-     * the library to record a read that never happened.
-     */
-    fun requestOpen(book: Book) {
-        postMessage(LibraryMessage::ReaderNotBuilt)
     }
 
     /** Opens the "what about the highlights?" prompt; nothing is deleted until confirmed. */

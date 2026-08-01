@@ -27,6 +27,20 @@ interface BookDao {
 
     @Query("UPDATE books SET last_opened_at = :timestamp WHERE id = :id")
     suspend fun markOpened(id: Long, timestamp: Long)
+
+    /**
+     * The reading position. Written on every page turn, so it is one statement rather than
+     * a read-modify-write — losing a page on a crash is acceptable, corrupting the row is
+     * not.
+     */
+    @Query(
+        """
+        UPDATE books
+        SET current_locator_json = :locatorJson, progress_fraction = :progressFraction
+        WHERE id = :id
+        """,
+    )
+    suspend fun saveProgress(id: Long, locatorJson: String, progressFraction: Float)
 }
 
 @Dao
