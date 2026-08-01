@@ -44,7 +44,7 @@ export PATH="$JAVA_HOME/bin:/opt/homebrew/share/android-commandlinetools/platfor
 | `./gradlew connectedAndroidTest` | 2 tests, 0 failures |
 | `./gradlew lint` | 0 errors, 3 warnings (all `NewerVersionAvailable`, deliberate pins) |
 
-Screenshots: `docs/screenshots/m0/`, captured by `tools/screenshots.py` — all five theme
+Screenshots: `docs/screenshots/m0/`, captured by `tools/screenshots_m0.py` — all five theme
 options on both screens, plus AMOLED surviving `am kill` and "follow system" tracking a
 system dark-mode switch.
 
@@ -73,6 +73,10 @@ specify every M3 role.
 incremental is ~1 minute. Plan milestone work around not needing many cold builds.
 
 ## Open questions for the owner
-- Disk is at 91% (39GB free). The SDK + emulator image took ~8GB of that.
+- **Disk is at 95% (~24GB free)**, down from 39GB at M0. The Android toolchain accounts for
+  ~11.6GB (SDK 6.4G, Gradle caches 3.3G, AVD 1.9G); the rest is build output and the
+  emulator's growing disk image. The emulator wedged twice during M1 under this pressure —
+  its package-manager service died once, and `uiautomator dump` hung once. Worth freeing
+  space before M2.
 - No physical device is attached to this Mac, so every "on device" check so far is really
   "on emulator". Worth plugging the phone in before M2, where reading feel starts to matter.
