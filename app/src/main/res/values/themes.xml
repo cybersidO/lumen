@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The window theme that is on screen before Compose draws its first frame.
+      Its only job is to make the pre-composition window the right colour so the
+      launch doesn't flash. values-night/ carries the dark counterpart.
+    -->
+    <style name="Theme.Lumen.Starting" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- Navigation-bar icon tint is API 27+, so it is set at runtime through
+             WindowCompat in Theme.kt rather than declared here. -->
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Lumen</string>
+
+    <!-- Library -->
+    <string name="library_title">Library</string>
+    <string name="library_empty_title">No books yet</string>
+    <string name="library_empty_body">Import an EPUB or PDF to get started. Books are copied into Lumen\'s private storage, so moving the original file won\'t break anything.</string>
+    <string name="library_import">Import a book</string>
+    <string name="library_import_not_built">Import isn\'t built yet — it arrives in M1.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_open">Open settings</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme_desc">Applies to the whole app. Book text follows the same theme once the reader lands in M2.</string>
+
+    <string name="theme_system">Follow system</string>
+    <string name="theme_system_desc">Light or dark, matching your phone</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_light_desc">Warm paper white</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_dark_desc">Soft charcoal, easy at night</string>
+    <string name="theme_amoled">AMOLED black</string>
+    <string name="theme_amoled_desc">True black — saves power on OLED screens</string>
+    <string name="theme_sepia">Sepia</string>
+    <string name="theme_sepia_desc">Aged paper, low contrast</string>
+
+    <!-- Navigation -->
+    <string name="nav_back">Back</string>
+</resources>

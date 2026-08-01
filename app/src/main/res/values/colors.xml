@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches LumenColors.LightBackground so the pre-Compose window doesn't flash. -->
+    <color name="window_background">#FFFBF7F2</color>
+    <color name="ic_launcher_background">#FF14110F</color>
+</resources>
