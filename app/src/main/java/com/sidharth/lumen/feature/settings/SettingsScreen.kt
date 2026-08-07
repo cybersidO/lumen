@@ -2,6 +2,8 @@ package com.sidharth.lumen.feature.settings
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,6 +11,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
@@ -23,6 +27,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -39,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sidharth.lumen.R
+import com.sidharth.lumen.core.settings.GestureSettings
 import com.sidharth.lumen.core.settings.ResolvedTheme
 import com.sidharth.lumen.core.settings.ThemeMode
 import com.sidharth.lumen.ui.theme.colorSchemeFor
@@ -78,7 +85,8 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState()),
         ) {
             SectionHeader(R.string.settings_appearance)
             Text(
@@ -100,9 +108,122 @@ fun SettingsScreen(
 
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+            )
+
+            SectionHeader(R.string.settings_gestures)
+            Text(
+                text = stringResource(R.string.settings_gestures_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 12.dp),
+            )
+
+            GestureZonePreview(
+                settings = settings.gestures,
+                modifier = Modifier
+                    .padding(horizontal = 48.dp)
+                    .fillMaxWidth(),
+            )
+
+            GestureSliderRow(
+                label = stringResource(R.string.gesture_edge_width),
+                value = settings.gestures.edgeStripFraction,
+                range = GestureSettings.MIN_EDGE_STRIP..GestureSettings.MAX_EDGE_STRIP,
+                onChange = { v -> viewModel.updateGestures { it.copy(edgeStripFraction = v) } },
+            )
+            GestureSliderRow(
+                label = stringResource(R.string.gesture_tap_width),
+                value = settings.gestures.tapZoneFraction,
+                range = GestureSettings.MIN_TAP_ZONE..GestureSettings.MAX_TAP_ZONE,
+                onChange = { v -> viewModel.updateGestures { it.copy(tapZoneFraction = v) } },
+            )
+
+            GestureToggleRow(
+                label = stringResource(R.string.gesture_brightness_toggle),
+                checked = settings.gestures.brightnessDragEnabled,
+                onChange = { v -> viewModel.updateGestures { it.copy(brightnessDragEnabled = v) } },
+            )
+            GestureToggleRow(
+                label = stringResource(R.string.gesture_font_size_toggle),
+                checked = settings.gestures.fontSizeDragEnabled,
+                onChange = { v -> viewModel.updateGestures { it.copy(fontSizeDragEnabled = v) } },
+            )
+            GestureToggleRow(
+                label = stringResource(R.string.gesture_tap_turn_toggle),
+                checked = settings.gestures.tapToTurnPageEnabled,
+                onChange = { v -> viewModel.updateGestures { it.copy(tapToTurnPageEnabled = v) } },
+            )
+            GestureToggleRow(
+                label = stringResource(R.string.gesture_two_finger_toggle),
+                hint = stringResource(R.string.gesture_two_finger_hint),
+                checked = settings.gestures.twoFingerTapThemeEnabled,
+                onChange = { v ->
+                    viewModel.updateGestures { it.copy(twoFingerTapThemeEnabled = v) }
+                },
+            )
+
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun GestureSliderRow(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onChange: (Float) -> Unit,
+) {
+    Column(Modifier.padding(horizontal = 24.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "${(value * 100).toInt()}%",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Slider(value = value, onValueChange = onChange, valueRange = range)
+    }
+}
+
+@Composable
+private fun GestureToggleRow(
+    label: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+    hint: String? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            if (hint != null) {
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
     }
 }
 

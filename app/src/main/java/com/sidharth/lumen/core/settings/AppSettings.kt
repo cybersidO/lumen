@@ -8,6 +8,8 @@ package com.sidharth.lumen.core.settings
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val typography: ReaderTypography = ReaderTypography.Defaults,
+    val gestures: GestureSettings = GestureSettings.Defaults,
+    val brightness: BrightnessSettings = BrightnessSettings.Defaults,
 ) {
     companion object {
         val Defaults = AppSettings()

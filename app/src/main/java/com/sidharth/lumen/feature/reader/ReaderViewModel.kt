@@ -8,11 +8,15 @@ import com.sidharth.lumen.core.di.ApplicationScope
 import com.sidharth.lumen.core.di.IoDispatcher
 import com.sidharth.lumen.core.readium.PublicationRepository
 import com.sidharth.lumen.core.settings.AppSettings
+import com.sidharth.lumen.core.settings.BrightnessSettings
 import com.sidharth.lumen.core.settings.ReaderTypography
 import com.sidharth.lumen.core.settings.SettingsRepository
+import com.sidharth.lumen.core.settings.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -46,6 +50,17 @@ data class ReaderChromeState(
     val progressFraction: Float = 0f,
     val chapterTitle: String? = null,
 )
+
+enum class IndicatorKind { BRIGHTNESS, FONT_SIZE }
+
+/** The transient drag readout. Null when nothing should be shown. */
+data class IndicatorState(
+    val kind: IndicatorKind,
+    val fraction: Float,
+)
+
+/** How long the indicator lingers after the finger lifts, before its 600ms fade. */
+const val INDICATOR_LINGER_MILLIS = 600L
 
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
@@ -148,7 +163,77 @@ class ReaderViewModel @Inject constructor(
                 current.fontSizePercent + steps * ReaderTypography.FONT_SIZE_STEP_PERCENT,
             )
         }
+        _indicator.value = IndicatorState(
+            kind = IndicatorKind.FONT_SIZE,
+            // The label reads from settings on the next emission; fraction is against the
+            // full size range so the bar has a meaningful fill level.
+            fraction = fontSizeFraction(
+                settings.value.typography.fontSizePercent +
+                    steps * ReaderTypography.FONT_SIZE_STEP_PERCENT,
+            ),
+        )
     }
+
+    // --- gesture-driven brightness -------------------------------------------------
+
+    /**
+     * The live value during a drag. Held here, not written to DataStore per movement —
+     * a drag emits dozens of values a second and each DataStore edit is a disk write.
+     * [commitBrightness] persists once, on finger-up.
+     */
+    private val _liveBrightness = MutableStateFlow<BrightnessSettings?>(null)
+    val liveBrightness: StateFlow<BrightnessSettings?> = _liveBrightness
+
+    private val _indicator = MutableStateFlow<IndicatorState?>(null)
+    val indicator: StateFlow<IndicatorState?> = _indicator
+
+    /** Where a fresh drag starts from: the live value if mid-drag, else the saved one. */
+    fun brightnessSliderValue(): Float =
+        (_liveBrightness.value ?: settings.value.brightness).toSlider()
+
+    fun onBrightnessDrag(sliderValue: Float) {
+        val updated = BrightnessSettings.fromSlider(sliderValue)
+        _liveBrightness.value = updated
+        _indicator.value = IndicatorState(IndicatorKind.BRIGHTNESS, sliderValue)
+    }
+
+    fun commitBrightness() {
+        val final = _liveBrightness.value ?: return
+        viewModelScope.launch { settingsRepository.updateBrightness { final } }
+        scheduleIndicatorFade()
+    }
+
+    fun onFontSizeDragEnd() {
+        scheduleIndicatorFade()
+    }
+
+    fun toggleThemeFromGesture() {
+        viewModelScope.launch {
+            val current = settings.value.themeMode
+            // Two-finger tap toggles light/dark (§2.3). AMOLED and Sepia map to their
+            // nearest counterpart rather than being silently overwritten on the way back.
+            val next = when (current) {
+                ThemeMode.LIGHT, ThemeMode.SEPIA -> ThemeMode.DARK
+                ThemeMode.DARK, ThemeMode.AMOLED -> ThemeMode.LIGHT
+                ThemeMode.SYSTEM -> ThemeMode.DARK
+            }
+            settingsRepository.setThemeMode(next)
+        }
+    }
+
+    private var fadeJob: Job? = null
+
+    private fun scheduleIndicatorFade() {
+        fadeJob?.cancel()
+        fadeJob = viewModelScope.launch {
+            delay(INDICATOR_LINGER_MILLIS)
+            _indicator.value = null
+        }
+    }
+
+    private fun fontSizeFraction(percent: Int): Float =
+        (percent - ReaderTypography.MIN_FONT_SIZE_PERCENT).toFloat() /
+            (ReaderTypography.MAX_FONT_SIZE_PERCENT - ReaderTypography.MIN_FONT_SIZE_PERCENT)
 
     override fun onCleared() {
         // The publication owns open file handles. Closing outlives this ViewModel, so it

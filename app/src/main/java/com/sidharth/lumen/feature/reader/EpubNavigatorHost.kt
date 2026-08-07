@@ -16,6 +16,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.epub.EpubPreferences
+import com.sidharth.lumen.feature.reader.gesture.ReaderGestureLayout
+import com.sidharth.lumen.feature.reader.gesture.TapAction
 import org.readium.r2.navigator.input.InputListener
 import org.readium.r2.navigator.input.TapEvent
 import org.readium.r2.shared.publication.Locator
@@ -45,6 +47,7 @@ fun EpubNavigatorHost(
     onNavigatorReady: (EpubNavigatorFragment) -> Unit,
     onLocatorChanged: (Locator) -> Unit,
     modifier: Modifier = Modifier,
+    onGestureLayoutReady: (ReaderGestureLayout) -> Unit = {},
 ) {
     val activity = androidx.activity.compose.LocalActivity.current as FragmentActivity
     val containerId = remember { View.generateViewId() }
@@ -52,7 +55,16 @@ fun EpubNavigatorHost(
     AndroidView(
         modifier = modifier,
         factory = { context ->
-            FragmentContainerView(context).apply { id = containerId }
+            // The gesture layer must be a *View* wrapping the fragment container — the
+            // M2 lesson: a Compose overlay above the WebView eats its touches. As a
+            // parent ViewGroup it can observe every event and steal only vertical
+            // edge-strip drags, leaving taps, swipes and selection for the WebView.
+            ReaderGestureLayout(context).apply {
+                addView(
+                    FragmentContainerView(context).apply { id = containerId },
+                )
+                onGestureLayoutReady(this)
+            }
         },
     )
 
@@ -87,24 +99,31 @@ fun EpubNavigatorHost(
 }
 
 /**
- * Routes taps through Readium's own input pipeline.
+ * Routes taps through Readium's own input pipeline and resolves them into zone actions.
  *
- * The navigator renders into a WebView, so anything layered over it in Compose intercepts
- * touches before the WebView gets them — which breaks swipe-to-turn-page without any
- * visible sign that it has. Registering here instead leaves Readium's own gesture handling
- * intact. Returning false marks the tap unconsumed so Readium can still act on it.
+ * Readium's `TapEvent` only fires for genuine content taps — link clicks and selection
+ * taps are filtered at the JS level — so resolving §2.3's tap zones here means a tap on a
+ * footnote link follows the link instead of also turning a page. The View-level gesture
+ * layout deliberately does not resolve single-finger taps for exactly this reason.
+ *
+ * Page-turn taps return true (consumed); Readium's default edge-tap handling would
+ * otherwise also fire and double-turn.
  */
 @Composable
 fun ReaderTapListener(
     navigator: EpubNavigatorFragment?,
-    onTap: () -> Unit,
+    resolveAction: (x: Float, viewWidth: Int) -> TapAction,
+    onAction: (TapAction) -> Unit,
 ) {
     DisposableEffect(navigator) {
         val current = navigator
         val listener = object : InputListener {
             override fun onTap(event: TapEvent): Boolean {
-                onTap()
-                return false
+                val width = current?.view?.width ?: 0
+                val action = resolveAction(event.point.x, width)
+                if (action == TapAction.NONE) return false
+                onAction(action)
+                return action != TapAction.TOGGLE_CHROME
             }
         }
         current?.addInputListener(listener)

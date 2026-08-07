@@ -7,7 +7,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M0 | Skeleton — scaffold, Hilt, Compose, M3, nav, 4 themes, empty Library | ☑ | 2026-08-01 · verified on emulator |
 | M1 | Library — SAF import, hashing, covers, Room v1, grid, sort/search | ☑ | 2026-08-01 · EPUB only; PDF import lands with its reader in M8 |
 | M2 | Reader core — Readium, pagination, TOC, progress, typography | ☑ | 2026-08-01 · position restore is position-granular, see below |
-| M3 | Gestures — full §2.3 layer, edge drags, zone-preview settings | ☐ | riskiest milestone |
+| M3 | Gestures — full §2.3 layer, edge drags, zone-preview settings | ☑ | 2026-08-04 · two-finger toggle off by default |
 | M4 | Highlighting — selection toolbar, locator anchoring, notes, tags | ☐ | |
 | M5 | Dictionary — OEWN DB, Morphy lemmatizer, sheet, lookup log | ☐ | |
 | M6 | Notes database — cross-book list, FTS, export, backup/restore | ☐ | |
@@ -92,6 +92,35 @@ position per ~1024 characters. After a large font-size change the reader lands o
 *position*, not the same line — visible text can shift by a paragraph or two within the
 chapter. Fine for reading; M4's highlights use the finer text-quote selectors, where
 exactness actually matters.
+
+## M3 verification — 2026-08-04
+
+| Command | Result |
+|---|---|
+| `./gradlew :app:assembleDebug` | BUILD SUCCESSFUL |
+| `./gradlew test` | 54 tests, 0 failures |
+| `./gradlew connectedAndroidTest` | 21 tests, 0 failures |
+| `./gradlew lint` | 0 errors, 3 warnings (deliberate version pins) |
+
+On-device (emulator), against The Martian:
+- Full-height vertical drag in the left strip: locator byte-identical before/after —
+  **the page did not turn** — brightness indicator visible mid-drag, value persisted on
+  finger-up.
+- Right-strip drag up: font size 100% → 210% (12 steps × 10% over ~4.7 steps of travel
+  minus the slop re-anchor), page position kept.
+- Tap zones: right tap advanced (progression 0 → 0.4995), left tap returned to 0,
+  centre tap toggled chrome.
+- Settings: live zone diagram re-lays-out as the sliders move; tapping a zone highlights
+  it and explains it.
+
+Honest limits:
+- **Two-finger theme toggle is OFF by default** (collides with pinch-zoom / TalkBack); it
+  is covered by an instrumented MotionEvent test, not by a by-hand emulator check.
+- **RTL inversion is unit-tested only** — no RTL EPUB on hand for an end-to-end check.
+- Window brightness doesn't show in screencaps (framebuffer is pre-backlight); evidence is
+  the persisted values and the locator staying put. The sub-minimum black overlay does
+  composite into screenshots.
+- Haptic ticks per font step: code is there; an emulator has no vibration motor to feel.
 
 ## Open questions for the owner
 - **Disk is at 95% (~24GB free)**, down from 39GB at M0. The Android toolchain accounts for

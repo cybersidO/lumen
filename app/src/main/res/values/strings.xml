@@ -56,11 +56,28 @@
     <string name="reader_alignment">Alignment</string>
     <string name="reader_hyphenation">Hyphenation</string>
 
+    <!-- Gesture settings -->
+    <string name="settings_gestures">Reading gestures</string>
+    <string name="settings_gestures_desc">Every zone is adjustable; the diagram updates as you change them. Tap a zone to see what it does.</string>
+    <string name="gesture_edge_width">Edge strip width</string>
+    <string name="gesture_tap_width">Tap zone width</string>
+    <string name="gesture_brightness_toggle">Brightness drag (left edge)</string>
+    <string name="gesture_font_size_toggle">Font size drag (right edge)</string>
+    <string name="gesture_tap_turn_toggle">Tap to turn pages</string>
+    <string name="gesture_two_finger_toggle">Two-finger tap toggles theme</string>
+    <string name="gesture_two_finger_hint">Off by default: it can collide with pinch-zoom and with TalkBack gestures.</string>
+    <string name="zone_desc_hint">Tap a zone above to see what it does.</string>
+    <string name="zone_desc_left_edge">Left edge strip — drag up or down to change brightness. Never turns a page.</string>
+    <string name="zone_desc_right_edge">Right edge strip — drag up or down to change font size, one notch per step.</string>
+    <string name="zone_desc_left_tap">Left tap zone — previous page (next page in right-to-left books).</string>
+    <string name="zone_desc_right_tap">Right tap zone — next page (previous page in right-to-left books).</string>
+    <string name="zone_desc_centre">Centre — tap to show or hide the reading controls.</string>
+
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_open">Open settings</string>
     <string name="settings_appearance">Appearance</string>
-    <string name="settings_theme_desc">Applies to the whole app. Book text follows the same theme once the reader lands in M2.</string>
+    <string name="settings_theme_desc">Applies to the whole app, including the book\'s own pages.</string>
 
     <string name="theme_system">Follow system</string>
     <string name="theme_system_desc">Light or dark, matching your phone</string>

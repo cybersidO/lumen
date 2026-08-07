@@ -29,7 +29,46 @@ class SettingsRepository @Inject constructor(
                 textAlign = ReaderTextAlign.fromStorageKey(prefs[Keys.TextAlign]),
                 hyphens = prefs[Keys.Hyphens] ?: true,
             ),
+            gestures = prefs.readGestures(),
+            brightness = prefs.readBrightness(),
         )
+    }
+
+    private fun Preferences.readGestures() = GestureSettings(
+        edgeStripFraction = this[Keys.EdgeStrip] ?: GestureSettings.DEFAULT_EDGE_STRIP,
+        tapZoneFraction = this[Keys.TapZone] ?: GestureSettings.DEFAULT_TAP_ZONE,
+        brightnessDragEnabled = this[Keys.BrightnessDrag] ?: true,
+        fontSizeDragEnabled = this[Keys.FontSizeDrag] ?: true,
+        tapToTurnPageEnabled = this[Keys.TapToTurn] ?: true,
+        twoFingerTapThemeEnabled = this[Keys.TwoFingerTheme] ?: false,
+    ).sanitised()
+
+    private fun Preferences.readBrightness() = BrightnessSettings(
+        // The sentinel is stored rather than absence, so "follow system" is a choice the
+        // user made and not merely a key that has never been written.
+        windowBrightness = this[Keys.Brightness]
+            ?.takeIf { it >= 0f },
+        extraDim = this[Keys.ExtraDim] ?: 0f,
+    ).sanitised()
+
+    suspend fun updateGestures(transform: (GestureSettings) -> GestureSettings) {
+        dataStore.edit { prefs ->
+            val updated = transform(prefs.readGestures()).sanitised()
+            prefs[Keys.EdgeStrip] = updated.edgeStripFraction
+            prefs[Keys.TapZone] = updated.tapZoneFraction
+            prefs[Keys.BrightnessDrag] = updated.brightnessDragEnabled
+            prefs[Keys.FontSizeDrag] = updated.fontSizeDragEnabled
+            prefs[Keys.TapToTurn] = updated.tapToTurnPageEnabled
+            prefs[Keys.TwoFingerTheme] = updated.twoFingerTapThemeEnabled
+        }
+    }
+
+    suspend fun updateBrightness(transform: (BrightnessSettings) -> BrightnessSettings) {
+        dataStore.edit { prefs ->
+            val updated = transform(prefs.readBrightness()).sanitised()
+            prefs[Keys.Brightness] = updated.windowBrightness ?: BrightnessSettings.FOLLOW_SYSTEM
+            prefs[Keys.ExtraDim] = updated.extraDim
+        }
     }
 
     suspend fun setThemeMode(mode: ThemeMode) {
@@ -66,5 +105,13 @@ class SettingsRepository @Inject constructor(
         val MarginsPercent = intPreferencesKey("reader_margins_percent")
         val TextAlign = stringPreferencesKey("reader_text_align")
         val Hyphens = booleanPreferencesKey("reader_hyphens")
+        val EdgeStrip = floatPreferencesKey("gesture_edge_strip")
+        val TapZone = floatPreferencesKey("gesture_tap_zone")
+        val BrightnessDrag = booleanPreferencesKey("gesture_brightness_drag")
+        val FontSizeDrag = booleanPreferencesKey("gesture_font_size_drag")
+        val TapToTurn = booleanPreferencesKey("gesture_tap_to_turn")
+        val TwoFingerTheme = booleanPreferencesKey("gesture_two_finger_theme")
+        val Brightness = floatPreferencesKey("reader_brightness")
+        val ExtraDim = floatPreferencesKey("reader_extra_dim")
     }
 }

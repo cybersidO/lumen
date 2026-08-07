@@ -45,10 +45,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.activity.compose.LocalActivity
+import androidx.compose.runtime.LaunchedEffect
 import com.sidharth.lumen.R
 import com.sidharth.lumen.core.readium.readiumPreferences
 import com.sidharth.lumen.core.settings.ResolvedTheme
+import com.sidharth.lumen.feature.reader.gesture.ApplyWindowBrightness
+import com.sidharth.lumen.feature.reader.gesture.DimOverlay
+import com.sidharth.lumen.feature.reader.gesture.GestureGeometry
+import com.sidharth.lumen.feature.reader.gesture.GestureIndicator
+import com.sidharth.lumen.feature.reader.gesture.IndicatorSide
+import com.sidharth.lumen.feature.reader.gesture.ReaderGestureLayout
+import com.sidharth.lumen.feature.reader.gesture.TapAction
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
+import org.readium.r2.shared.publication.ReadingProgression
 
 const val ReaderTocButtonTag = "reader_toc_button"
 const val ReaderTypographyButtonTag = "reader_typography_button"
@@ -84,6 +94,16 @@ fun ReaderScreen(
                     readiumPreferences(settings.typography, resolvedTheme)
                 }
 
+                val activity = LocalActivity.current
+                val liveBrightness by viewModel.liveBrightness.collectAsStateWithLifecycle()
+                val indicator by viewModel.indicator.collectAsStateWithLifecycle()
+                val isRtl = remember(state.publication) {
+                    state.publication.metadata.readingProgression ==
+                        ReadingProgression.RTL
+                }
+
+                var gestureLayout by remember { mutableStateOf<ReaderGestureLayout?>(null) }
+
                 EpubNavigatorHost(
                     publication = state.publication,
                     initialLocator = state.initialLocator,
@@ -91,7 +111,23 @@ fun ReaderScreen(
                     onNavigatorReady = { navigator = it },
                     onLocatorChanged = viewModel::onLocatorChanged,
                     modifier = Modifier.fillMaxSize().testTag(ReaderSurfaceTag),
+                    onGestureLayoutReady = { gestureLayout = it },
                 )
+
+                // The gesture layout is a plain View; its callbacks are re-pointed at the
+                // current ViewModel state on every relevant change.
+                LaunchedEffect(gestureLayout, settings.gestures, isRtl) {
+                    gestureLayout?.apply {
+                        this.settings = settings.gestures.sanitised()
+                        this.isRtl = isRtl
+                        currentBrightness = { viewModel.brightnessSliderValue() }
+                        onBrightnessChange = viewModel::onBrightnessDrag
+                        onBrightnessDragEnd = viewModel::commitBrightness
+                        onFontSizeStep = viewModel::nudgeFontSize
+                        onFontSizeDragEnd = viewModel::onFontSizeDragEnd
+                        onTwoFingerTap = viewModel::toggleThemeFromGesture
+                    }
+                }
 
                 TrackLocator(navigator = navigator, onLocatorChanged = viewModel::onLocatorChanged)
 
@@ -100,12 +136,53 @@ fun ReaderScreen(
                 // size changes (§M2's done-when).
                 ApplyPreferences(navigator = navigator, preferences = preferences)
 
-                // Taps go through Readium's own input pipeline, NOT a Compose overlay.
-                // A transparent clickable Box on top of the navigator swallows every touch
-                // before the WebView sees it, which silently breaks swipe-to-turn-page.
-                // The full gesture layer lands in M3; this is the minimum that leaves the
-                // reader usable.
-                ReaderTapListener(navigator = navigator, onTap = viewModel::toggleChrome)
+                // §2.3's tap zones, resolved from Readium's TapEvent so link taps stay
+                // link taps. Page turns are consumed; chrome toggles are not.
+                ReaderTapListener(
+                    navigator = navigator,
+                    resolveAction = { x, width ->
+                        GestureGeometry.tapActionFor(
+                            zone = GestureGeometry.zoneFor(
+                                x = x,
+                                width = width.toFloat(),
+                                settings = settings.gestures,
+                            ),
+                            settings = settings.gestures,
+                            isRtl = isRtl,
+                        )
+                    },
+                    onAction = { action ->
+                        when (action) {
+                            TapAction.NEXT_PAGE -> navigator?.goForward(animated = true)
+                            TapAction.PREVIOUS_PAGE -> navigator?.goBackward(animated = true)
+                            TapAction.TOGGLE_CHROME -> viewModel.toggleChrome()
+                            TapAction.NONE -> Unit
+                        }
+                    },
+                )
+
+                // Window-local brightness (§2.3): live value during a drag, saved value
+                // otherwise. The dim overlay carries the range below the OS floor.
+                val effectiveBrightness = liveBrightness ?: settings.brightness
+                ApplyWindowBrightness(activity = activity, brightness = effectiveBrightness)
+                DimOverlay(alpha = effectiveBrightness.extraDim)
+
+                indicator?.let { ind ->
+                    GestureIndicator(
+                        visible = true,
+                        side = when (ind.kind) {
+                            IndicatorKind.BRIGHTNESS -> IndicatorSide.LEFT
+                            IndicatorKind.FONT_SIZE -> IndicatorSide.RIGHT
+                        },
+                        label = when (ind.kind) {
+                            IndicatorKind.BRIGHTNESS ->
+                                "${(ind.fraction * 100).toInt()}%"
+                            IndicatorKind.FONT_SIZE ->
+                                "${settings.typography.fontSizePercent}%"
+                        },
+                        fraction = ind.fraction,
+                    )
+                }
 
                 ReaderChrome(
                     visible = chrome.visible,

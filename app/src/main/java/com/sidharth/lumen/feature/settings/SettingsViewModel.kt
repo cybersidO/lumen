@@ -3,6 +3,7 @@ package com.sidharth.lumen.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sidharth.lumen.core.settings.AppSettings
+import com.sidharth.lumen.core.settings.GestureSettings
 import com.sidharth.lumen.core.settings.SettingsRepository
 import com.sidharth.lumen.core.settings.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,5 +27,9 @@ class SettingsViewModel @Inject constructor(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settingsRepository.setThemeMode(mode) }
+    }
+
+    fun updateGestures(transform: (GestureSettings) -> GestureSettings) {
+        viewModelScope.launch { settingsRepository.updateGestures(transform) }
     }
 }

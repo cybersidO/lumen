@@ -137,3 +137,31 @@ ignores the font size and line height the reader just changed.
 Rejected OpenDyslexic: licensing history is muddier and its rendering at small sizes is
 worse. Atkinson Hyperlegible is SIL OFL 1.1, designed by the Braille Institute for low
 vision, and disambiguates the same character pairs.
+
+## 2026-08-04 — The gesture layer is a ViewGroup around the WebView, not a Compose overlay
+M3's design followed directly from M2's bug: anything above the navigator in Compose eats
+its touches. `ReaderGestureLayout` wraps the fragment container and watches the stream via
+`onInterceptTouchEvent`, stealing a gesture only at the moment the directional lock commits
+to VERTICAL inside an edge strip — before the pager has seen enough movement to scroll.
+Everything else (taps, horizontal swipes, long-press selection) reaches the WebView
+untouched. The drag re-anchors at the commit point so the first movement doesn't jump by
+the slop distance.
+
+## 2026-08-04 — Single-finger taps resolve through Readium's TapEvent, not the View layer
+Readium's JS filters link clicks and selection taps out of `TapEvent`, so resolving §2.3's
+tap zones there means tapping a footnote link follows the link instead of also turning a
+page. The View layer cannot know what's under the finger; the JS can. Two-finger taps
+never reach the JS pipeline, so those are detected in the ViewGroup. Page-turn taps are
+consumed (returning true) so Readium's built-in edge taps don't double-fire.
+
+## 2026-08-04 — One brightness slider, two mechanisms
+The drag maps 0..1 onto `WindowManager.LayoutParams.screenBrightness` above the floor and
+a black overlay below it (`BrightnessSettings.fromSlider`), continuous across the boundary
+by construction and covered by unit tests. The overlay caps at 0.85 alpha so the screen can
+never be dragged unrecoverably black. Live drag values stay in memory; DataStore is written
+once, on finger-up — a drag emits dozens of values a second and each edit is a disk write.
+
+## 2026-08-04 — Two-finger theme toggle ships OFF by default
+As flagged in the §10 review: it collides with pinch-zoom and with TalkBack/magnification
+gestures. It is implemented, tested (instrumented MotionEvent streams), and a switch in
+Settings turns it on. §2.3's table is otherwise implemented as written.
