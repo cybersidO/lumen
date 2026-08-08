@@ -1,0 +1,334 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "2a9580280d821f5626036f6042608a3e",
+    "entities": [
+      {
+        "tableName": "books",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `content_hash` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT, `format` TEXT NOT NULL, `file_path` TEXT NOT NULL, `cover_path` TEXT, `added_at` INTEGER NOT NULL, `last_opened_at` INTEGER, `progress_fraction` REAL NOT NULL, `current_locator_json` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentHash",
+            "columnName": "content_hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "author",
+            "columnName": "author",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "format",
+            "columnName": "format",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "filePath",
+            "columnName": "file_path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "coverPath",
+            "columnName": "cover_path",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "addedAt",
+            "columnName": "added_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastOpenedAt",
+            "columnName": "last_opened_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "progressFraction",
+            "columnName": "progress_fraction",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currentLocatorJson",
+            "columnName": "current_locator_json",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_books_content_hash",
+            "unique": true,
+            "columnNames": [
+              "content_hash"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_books_content_hash` ON `${TABLE_NAME}` (`content_hash`)"
+          }
+        ]
+      },
+      {
+        "tableName": "highlights",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `book_content_hash` TEXT NOT NULL, `color_id` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `resource_href` TEXT NOT NULL, `resource_progression` REAL, `locator_json` TEXT, `quote_prefix` TEXT NOT NULL, `quote_exact` TEXT NOT NULL, `quote_suffix` TEXT NOT NULL, `chapter_title` TEXT, `progress_fraction` REAL NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bookContentHash",
+            "columnName": "book_content_hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "colorId",
+            "columnName": "color_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resourceHref",
+            "columnName": "resource_href",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resourceProgression",
+            "columnName": "resource_progression",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "locatorJson",
+            "columnName": "locator_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "quotePrefix",
+            "columnName": "quote_prefix",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quoteExact",
+            "columnName": "quote_exact",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quoteSuffix",
+            "columnName": "quote_suffix",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "chapterTitle",
+            "columnName": "chapter_title",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "progressFraction",
+            "columnName": "progress_fraction",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_highlights_book_content_hash",
+            "unique": false,
+            "columnNames": [
+              "book_content_hash"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_highlights_book_content_hash` ON `${TABLE_NAME}` (`book_content_hash`)"
+          }
+        ]
+      },
+      {
+        "tableName": "notes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `highlight_id` INTEGER, `book_content_hash` TEXT NOT NULL, `body` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "highlightId",
+            "columnName": "highlight_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "bookContentHash",
+            "columnName": "book_content_hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "body",
+            "columnName": "body",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_notes_highlight_id",
+            "unique": false,
+            "columnNames": [
+              "highlight_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_notes_highlight_id` ON `${TABLE_NAME}` (`highlight_id`)"
+          },
+          {
+            "name": "index_notes_book_content_hash",
+            "unique": false,
+            "columnNames": [
+              "book_content_hash"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_notes_book_content_hash` ON `${TABLE_NAME}` (`book_content_hash`)"
+          }
+        ]
+      },
+      {
+        "tableName": "tags",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_tags_name",
+            "unique": true,
+            "columnNames": [
+              "name"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_tags_name` ON `${TABLE_NAME}` (`name`)"
+          }
+        ]
+      },
+      {
+        "tableName": "highlight_tags",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`highlight_id` INTEGER NOT NULL, `tag_id` INTEGER NOT NULL, PRIMARY KEY(`highlight_id`, `tag_id`))",
+        "fields": [
+          {
+            "fieldPath": "highlightId",
+            "columnName": "highlight_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tagId",
+            "columnName": "tag_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "highlight_id",
+            "tag_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_highlight_tags_tag_id",
+            "unique": false,
+            "columnNames": [
+              "tag_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_highlight_tags_tag_id` ON `${TABLE_NAME}` (`tag_id`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2a9580280d821f5626036f6042608a3e')"
+    ]
+  }
+}

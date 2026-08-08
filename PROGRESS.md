@@ -8,7 +8,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M1 | Library — SAF import, hashing, covers, Room v1, grid, sort/search | ☑ | 2026-08-01 · EPUB only; PDF import lands with its reader in M8 |
 | M2 | Reader core — Readium, pagination, TOC, progress, typography | ☑ | 2026-08-01 · position restore is position-granular, see below |
 | M3 | Gestures — full §2.3 layer, edge drags, zone-preview settings | ☑ | 2026-08-04 · two-finger toggle off by default |
-| M4 | Highlighting — selection toolbar, locator anchoring, notes, tags | ☐ | |
+| M4 | Highlighting — selection toolbar, locator anchoring, notes, tags | ☑ | 2026-08-08 · verified 80% → 300% font across a process kill |
 | M5 | Dictionary — OEWN DB, Morphy lemmatizer, sheet, lookup log | ☐ | |
 | M6 | Notes database — cross-book list, FTS, export, backup/restore | ☐ | |
 | M7 | Review mode — flashcard queue, spaced intervals | ☐ | |
@@ -121,6 +121,39 @@ Honest limits:
   the persisted values and the locator staying put. The sub-minimum black overlay does
   composite into screenshots.
 - Haptic ticks per font step: code is there; an emulator has no vibration motor to feel.
+
+## M4 verification — 2026-08-08
+
+| Command | Result |
+|---|---|
+| `./gradlew :app:assembleDebug` | BUILD SUCCESSFUL |
+| `./gradlew test` | 67 tests, 0 failures |
+| `./gradlew connectedAndroidTest` | 23 tests, 0 failures |
+| `./gradlew lint` | 0 errors |
+
+**The done-when, end to end on the emulator against The Martian:**
+1. Font shrunk to 80% via the right-edge drag; long-pressed "who" in
+   *who calls me "Dude."*; tapped the yellow swatch.
+2. Row written with the full three-part anchor — href
+   `OEBPS/Text/dedicatoria.xhtml`, progression, and the quote selector
+   (prefix `…me "Pickle," and Dad,`, exact `who`, suffix ` calls me "Dude`).
+3. Font raised to **300%** by edge-drag, then `adb shell am kill`, then relaunched
+   and reopened.
+4. The highlight renders on **exactly the right word** — and on the correct "who",
+   not the earlier *who calls me "Pickle,"* three lines above. Confirmed by pixel-scanning
+   the framebuffer for the tint, not by eyeballing.
+5. Tapping the rendered highlight opened the edit sheet; a note and two comma-separated
+   tags saved and were read back from the database.
+
+Screenshots in `docs/screenshots/m4/`.
+
+**A wrong turn worth recording.** Mid-verification I scanned a dozen pages, found no
+highlight tint anywhere, and concluded decorations were broken. They were not — the saved
+reading position had wandered during testing and the highlight was simply on none of the
+pages I looked at. Instrumenting the decoration path (`supportsHighlight=true`,
+`applying 1 decorations`) disproved the theory in one build. The fix was to force the
+book's saved locator to the highlight's own locator, which made the check deterministic.
+Had I "fixed" the non-bug first, I would have broken working code.
 
 ## Open questions for the owner
 - **Disk is at 95% (~24GB free)**, down from 39GB at M0. The Android toolchain accounts for

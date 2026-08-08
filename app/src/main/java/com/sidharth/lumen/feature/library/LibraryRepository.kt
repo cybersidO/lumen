@@ -3,6 +3,8 @@ package com.sidharth.lumen.feature.library
 import com.sidharth.lumen.core.books.BookStorage
 import com.sidharth.lumen.core.database.BookDao
 import com.sidharth.lumen.core.database.HighlightDao
+import com.sidharth.lumen.core.database.NoteDao
+import com.sidharth.lumen.core.database.TagDao
 import com.sidharth.lumen.core.di.IoDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +24,8 @@ enum class HighlightDisposition {
 class LibraryRepository @Inject constructor(
     private val bookDao: BookDao,
     private val highlightDao: HighlightDao,
+    private val noteDao: NoteDao,
+    private val tagDao: TagDao,
     private val storage: BookStorage,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
@@ -36,6 +40,10 @@ class LibraryRepository @Inject constructor(
 
     suspend fun delete(book: Book, disposition: HighlightDisposition) = withContext(ioDispatcher) {
         if (disposition == HighlightDisposition.DELETE) {
+            // No FK cascades by design: notes and tag links attached to the doomed
+            // highlights are cleaned up explicitly, in the same order every time.
+            highlightDao.forBook(book.contentHash).forEach { tagDao.unlinkAllFor(it.id) }
+            noteDao.deleteHighlightNotesForBook(book.contentHash)
             highlightDao.deleteForBook(book.contentHash)
         }
         // The row goes first. If file deletion fails (a locked file, say), the book is

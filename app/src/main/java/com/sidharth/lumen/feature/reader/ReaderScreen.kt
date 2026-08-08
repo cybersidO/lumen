@@ -45,8 +45,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.content.Intent
+import android.view.ActionMode
+import android.view.Menu
+import android.view.MenuItem
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import com.sidharth.lumen.feature.highlight.HighlightColor
+import com.sidharth.lumen.feature.highlight.HighlightEditSheet
+import com.sidharth.lumen.feature.highlight.SelectionToolbar
+import kotlinx.coroutines.launch
 import com.sidharth.lumen.R
 import com.sidharth.lumen.core.readium.readiumPreferences
 import com.sidharth.lumen.core.settings.ResolvedTheme
@@ -104,6 +117,43 @@ fun ReaderScreen(
 
                 var gestureLayout by remember { mutableStateOf<ReaderGestureLayout?>(null) }
 
+                val highlights by viewModel.highlights.collectAsStateWithLifecycle()
+                val activeSelection by viewModel.activeSelection.collectAsStateWithLifecycle()
+                val editingHighlight by viewModel.editingHighlight.collectAsStateWithLifecycle()
+                val scope = rememberCoroutineScope()
+
+                // Suppresses the system selection menu and reports selection lifecycle.
+                // The navigator reference is read through a holder because the callback
+                // must exist before the fragment does.
+                val navigatorHolder = rememberUpdatedState(navigator)
+                val selectionCallback = remember {
+                    object : ActionMode.Callback {
+                        override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+                            menu.clear()
+                            scope.launch {
+                                val selection =
+                                    navigatorHolder.value?.currentSelection()?.locator
+                                viewModel.onSelectionChanged(selection)
+                            }
+                            return true
+                        }
+
+                        override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
+                            menu.clear()
+                            return true
+                        }
+
+                        override fun onActionItemClicked(
+                            mode: ActionMode,
+                            item: MenuItem,
+                        ): Boolean = false
+
+                        override fun onDestroyActionMode(mode: ActionMode) {
+                            viewModel.clearSelection()
+                        }
+                    }
+                }
+
                 EpubNavigatorHost(
                     publication = state.publication,
                     initialLocator = state.initialLocator,
@@ -112,6 +162,14 @@ fun ReaderScreen(
                     onLocatorChanged = viewModel::onLocatorChanged,
                     modifier = Modifier.fillMaxSize().testTag(ReaderSurfaceTag),
                     onGestureLayoutReady = { gestureLayout = it },
+                    selectionActionModeCallback = selectionCallback,
+                )
+
+                HighlightDecorations(
+                    navigator = navigator,
+                    highlights = highlights,
+                    isDark = resolvedTheme.isDark,
+                    onHighlightTapped = viewModel::openHighlightEditor,
                 )
 
                 // The gesture layout is a plain View; its callbacks are re-pointed at the
@@ -192,6 +250,71 @@ fun ReaderScreen(
                     onOpenToc = { showToc = true },
                     onOpenTypography = { showTypography = true },
                 )
+
+                val clipboard = LocalClipboardManager.current
+                val context = LocalContext.current
+                val copiedMessage = stringResource(R.string.selection_copied)
+                val lookupNotBuilt = stringResource(R.string.selection_lookup_not_built)
+                var transientMessage by remember { mutableStateOf<String?>(null) }
+
+                if (activeSelection != null) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                        SelectionToolbar(
+                            onColor = { color ->
+                                viewModel.createHighlight(color)
+                                navigator?.clearSelection()
+                            },
+                            onNote = {
+                                viewModel.createHighlight(HighlightColor.YELLOW, thenEdit = true)
+                                navigator?.clearSelection()
+                            },
+                            onCopy = {
+                                activeSelection?.text?.highlight?.let { text ->
+                                    clipboard.setText(AnnotatedString(text))
+                                    transientMessage = copiedMessage
+                                }
+                                viewModel.clearSelection()
+                                navigator?.clearSelection()
+                            },
+                            onLookUp = { transientMessage = lookupNotBuilt },
+                            onShare = {
+                                activeSelection?.text?.highlight?.let { text ->
+                                    val send = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, text)
+                                    }
+                                    context.startActivity(
+                                        Intent.createChooser(send, null),
+                                    )
+                                }
+                                viewModel.clearSelection()
+                                navigator?.clearSelection()
+                            },
+                        )
+                    }
+                }
+
+                transientMessage?.let { message ->
+                    LaunchedEffect(message) {
+                        kotlinx.coroutines.delay(2000)
+                        transientMessage = null
+                    }
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier
+                                .navigationBarsPadding()
+                                .padding(bottom = 90.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                )
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                }
             }
         }
     }
@@ -210,6 +333,26 @@ fun ReaderScreen(
                     showToc = false
                     viewModel.hideChrome()
                 },
+            )
+        }
+    }
+
+    (viewModel.editingHighlight.collectAsStateWithLifecycle().value)?.let { editing ->
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = viewModel::closeHighlightEditor,
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ) {
+            HighlightEditSheet(
+                highlight = editing,
+                onRecolor = viewModel::recolorEditingHighlight,
+                onSaveNote = viewModel::saveEditingNote,
+                onSaveTags = { tags ->
+                    viewModel.saveEditingTags(tags)
+                    viewModel.closeHighlightEditor()
+                },
+                onDelete = viewModel::deleteEditingHighlight,
             )
         }
     }

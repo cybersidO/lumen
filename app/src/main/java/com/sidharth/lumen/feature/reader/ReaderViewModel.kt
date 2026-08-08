@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sidharth.lumen.core.database.BookDao
+import com.sidharth.lumen.core.database.HighlightEntity
 import com.sidharth.lumen.core.di.ApplicationScope
 import com.sidharth.lumen.core.di.IoDispatcher
 import com.sidharth.lumen.core.readium.PublicationRepository
@@ -12,12 +13,18 @@ import com.sidharth.lumen.core.settings.BrightnessSettings
 import com.sidharth.lumen.core.settings.ReaderTypography
 import com.sidharth.lumen.core.settings.SettingsRepository
 import com.sidharth.lumen.core.settings.ThemeMode
+import com.sidharth.lumen.feature.highlight.Highlight
+import com.sidharth.lumen.feature.highlight.HighlightColor
+import com.sidharth.lumen.feature.highlight.HighlightRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -35,6 +42,7 @@ sealed interface ReaderUiState {
 
     data class Ready(
         val bookId: Long,
+        val contentHash: String,
         val title: String,
         val publication: Publication,
         /** Where to open. Null means "the beginning" — a book never opened before. */
@@ -68,6 +76,7 @@ class ReaderViewModel @Inject constructor(
     private val bookDao: BookDao,
     private val publications: PublicationRepository,
     private val settingsRepository: SettingsRepository,
+    private val highlightRepository: HighlightRepository,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
@@ -110,6 +119,7 @@ class ReaderViewModel @Inject constructor(
                     _chrome.value = _chrome.value.copy(progressFraction = book.progressFraction)
                     _uiState.value = ReaderUiState.Ready(
                         bookId = bookId,
+                        contentHash = book.contentHash,
                         title = book.title,
                         publication = publication,
                         initialLocator = book.currentLocatorJson?.let(::parseLocator),
@@ -245,6 +255,89 @@ class ReaderViewModel @Inject constructor(
     private fun parseLocator(json: String): Locator? = runCatching {
         Locator.fromJSON(JSONObject(json))
     }.getOrNull()
+
+    // --- highlights (M4) --------------------------------------------------------------
+
+    /** Entities for the open book; drives decoration rendering. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val highlights: StateFlow<List<HighlightEntity>> = uiState
+        .flatMapLatest { state ->
+            when (state) {
+                is ReaderUiState.Ready -> highlightRepository.observeEntities(state.contentHash)
+                else -> flowOf(emptyList())
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The locator captured when text selection produced an action mode; null = no bar. */
+    private val _activeSelection = MutableStateFlow<Locator?>(null)
+    val activeSelection: StateFlow<Locator?> = _activeSelection
+
+    /** Highlight open in the edit sheet, loaded with its note and tags. */
+    private val _editingHighlight = MutableStateFlow<Highlight?>(null)
+    val editingHighlight: StateFlow<Highlight?> = _editingHighlight
+
+    fun onSelectionChanged(locator: Locator?) {
+        _activeSelection.value = locator
+    }
+
+    fun clearSelection() {
+        _activeSelection.value = null
+    }
+
+    /** Returns immediately; the decoration appears via the highlights flow. */
+    fun createHighlight(color: HighlightColor, thenEdit: Boolean = false) {
+        val state = uiState.value as? ReaderUiState.Ready ?: return
+        val locator = _activeSelection.value ?: return
+        _activeSelection.value = null
+        viewModelScope.launch {
+            val id = highlightRepository.create(
+                bookContentHash = state.contentHash,
+                locator = locator,
+                color = color,
+                chapterTitle = chrome.value.chapterTitle,
+            )
+            if (thenEdit) openHighlightEditor(id)
+        }
+    }
+
+    fun openHighlightEditor(id: Long) {
+        viewModelScope.launch { _editingHighlight.value = highlightRepository.load(id) }
+    }
+
+    fun closeHighlightEditor() {
+        _editingHighlight.value = null
+    }
+
+    fun recolorEditingHighlight(color: HighlightColor) {
+        val editing = _editingHighlight.value ?: return
+        viewModelScope.launch {
+            highlightRepository.recolor(editing.id, color)
+            _editingHighlight.value = highlightRepository.load(editing.id)
+        }
+    }
+
+    fun saveEditingNote(body: String) {
+        val editing = _editingHighlight.value ?: return
+        viewModelScope.launch {
+            highlightRepository.setNote(editing.id, body)
+            _editingHighlight.value = highlightRepository.load(editing.id)
+        }
+    }
+
+    fun saveEditingTags(tags: List<String>) {
+        val editing = _editingHighlight.value ?: return
+        viewModelScope.launch {
+            highlightRepository.setTags(editing.id, tags)
+            _editingHighlight.value = highlightRepository.load(editing.id)
+        }
+    }
+
+    fun deleteEditingHighlight() {
+        val editing = _editingHighlight.value ?: return
+        _editingHighlight.value = null
+        viewModelScope.launch { highlightRepository.delete(editing.id) }
+    }
 }
 
 /** A flattened TOC row; [depth] drives indentation rather than a nested tree. */

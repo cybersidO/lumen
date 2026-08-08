@@ -1,5 +1,6 @@
 package com.sidharth.lumen.feature.reader
 
+import android.view.ActionMode
 import android.view.View
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -16,8 +17,13 @@ import androidx.lifecycle.repeatOnLifecycle
 import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.epub.EpubPreferences
+import com.sidharth.lumen.core.database.HighlightEntity
+import com.sidharth.lumen.feature.highlight.HighlightColor
 import com.sidharth.lumen.feature.reader.gesture.ReaderGestureLayout
 import com.sidharth.lumen.feature.reader.gesture.TapAction
+import org.json.JSONObject
+import org.readium.r2.navigator.Decoration
+import org.readium.r2.navigator.DecorableNavigator
 import org.readium.r2.navigator.input.InputListener
 import org.readium.r2.navigator.input.TapEvent
 import org.readium.r2.shared.publication.Locator
@@ -48,6 +54,7 @@ fun EpubNavigatorHost(
     onLocatorChanged: (Locator) -> Unit,
     modifier: Modifier = Modifier,
     onGestureLayoutReady: (ReaderGestureLayout) -> Unit = {},
+    selectionActionModeCallback: ActionMode.Callback? = null,
 ) {
     val activity = androidx.activity.compose.LocalActivity.current as FragmentActivity
     val containerId = remember { View.generateViewId() }
@@ -79,6 +86,10 @@ fun EpubNavigatorHost(
             .createFragmentFactory(
                 initialLocator = initialLocator,
                 initialPreferences = preferences,
+                configuration = EpubNavigatorFragment.Configuration().apply {
+                    // Replaces the system text-selection menu with Lumen's own toolbar.
+                    selectionActionModeCallback?.let { this.selectionActionModeCallback = it }
+                },
             )
 
         fragmentManager.commitNow {
@@ -130,6 +141,55 @@ fun ReaderTapListener(
         onDispose { current?.removeInputListener(listener) }
     }
 }
+
+/**
+ * Keeps the rendered highlight decorations in step with the database and the theme.
+ *
+ * The decoration id carries the row id (`hl-<id>`), which is how a tap on a rendered
+ * highlight finds its way back to the entity for editing.
+ */
+@Composable
+fun HighlightDecorations(
+    navigator: EpubNavigatorFragment?,
+    highlights: List<HighlightEntity>,
+    isDark: Boolean,
+    onHighlightTapped: (Long) -> Unit,
+) {
+    LaunchedEffect(navigator, highlights, isDark) {
+        val decorable = navigator as? DecorableNavigator ?: return@LaunchedEffect
+        val decorations = highlights.mapNotNull { entity ->
+            val locator = entity.locatorJson?.let { json ->
+                runCatching { Locator.fromJSON(JSONObject(json)) }.getOrNull()
+            } ?: return@mapNotNull null
+            Decoration(
+                id = "hl-${entity.id}",
+                locator = locator,
+                style = Decoration.Style.Highlight(
+                    tint = HighlightColor.fromId(entity.colorId).tintFor(isDark),
+                    isActive = false,
+                ),
+            )
+        }
+        decorable.applyDecorations(decorations, group = DECORATION_GROUP)
+    }
+
+    DisposableEffect(navigator) {
+        val decorable = navigator as? DecorableNavigator
+        val listener = object : DecorableNavigator.Listener {
+            override fun onDecorationActivated(
+                event: DecorableNavigator.OnActivatedEvent,
+            ): Boolean {
+                val id = event.decoration.id.removePrefix("hl-").toLongOrNull() ?: return false
+                onHighlightTapped(id)
+                return true
+            }
+        }
+        decorable?.addDecorationListener(DECORATION_GROUP, listener)
+        onDispose { decorable?.removeDecorationListener(listener) }
+    }
+}
+
+private const val DECORATION_GROUP = "lumen-highlights"
 
 /**
  * Mirrors the navigator's position into the ViewModel.

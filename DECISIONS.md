@@ -133,6 +133,36 @@ also the only way to get AMOLED at all — Readium has DARK, but no AMOLED.
 `publisherStyles` is off for the same reason: with it on, a book carrying its own CSS
 ignores the font size and line height the reader just changed.
 
+## 2026-08-08 — Schema v2 refines §4's highlight anchor to progression + locator JSON
+§4 specified `textPositionStart/End` as integers. Readium's reflowable-EPUB locators do
+not expose character offsets — only `progression` (0..1 within the resource), `position`,
+and the text-quote selector — so those two columns could never have held meaningful data.
+v2 replaces them with `resource_progression REAL` + `locator_json TEXT`, keeping the
+three-part anchor the spec actually wants: **href, position-first resolution, text-quote
+fallback**. `MigrationTest` populates the v1 schema, migrates, and asserts every other
+field survives bit-for-bit *and* that a migrated highlight still resolves by quote alone.
+
+## 2026-08-08 — A wrong highlight is worse than a lost one
+`QuoteFinder` refuses to anchor when a quote occurs several times and no surrounding
+context agrees with any occurrence — it returns null rather than picking the first match.
+Silently gluing a highlight onto the wrong sentence is a corruption the user cannot see;
+a missing highlight is at least visible. The resolution ladder is: exact matches scored by
+context agreement → whitespace-normalised retry (re-serialised EPUBs differ in line breaks
+far more often than in words) → nothing.
+
+The normalised pass runs *even when* the raw pass matched, because a partial-context hit on
+the wrong occurrence can score lower than the right one found after collapsing whitespace.
+Context strings are collapsed but **not trimmed** there: the boundary space between context
+and quote is frequently the only surviving context, and trimming it zeroes every score.
+That last detail was a real test failure, not a hypothetical.
+
+## 2026-08-08 — Selection uses Readium's ActionMode hook, not a Compose overlay
+The M2 lesson again. `EpubNavigatorFragment.Configuration.selectionActionModeCallback`
+suppresses the system text menu (`menu.clear()`) and reports selection start/end, while the
+selection itself stays entirely inside the WebView — so handles, long-press and drag-to-
+extend all keep working. Lumen's toolbar is then drawn in Compose *above* that, which is
+safe because it only exists while a selection is active and sits clear of the text.
+
 ## 2026-08-01 — Atkinson Hyperlegible as the dyslexia-friendly face
 Rejected OpenDyslexic: licensing history is muddier and its rendering at small sizes is
 worse. Atkinson Hyperlegible is SIL OFL 1.1, designed by the Braille Institute for low

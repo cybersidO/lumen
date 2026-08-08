@@ -6,16 +6,20 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Created in schema v1 even though highlighting itself is M4.
+ * The durable asset (§4). The anchor is document-relative and threefold:
  *
- * Two reasons. First, M1 has to ask what to do with a book's highlights when deleting it,
- * which needs somewhere to count them. Second, §4 calls highlights the durable asset and
- * demands that any migration touching them be proved safe — so the anchoring columns are
- * defined once, up front, rather than bolted on later by a migration that could lose them.
+ *  1. [resourceHref] — which resource in the publication;
+ *  2. [resourceProgression] — position-first resolution: how far through that resource,
+ *     0..1. **Schema v2 refinement of §4's `textPositionStart/End`:** Readium's
+ *     reflowable-EPUB locators expose progression, not character offsets — there is
+ *     nothing that could ever have been written into integer offset columns. The v1→v2
+ *     migration is covered by a test that proves highlight data survives;
+ *  3. the text-quote selector [quotePrefix]/[quoteExact]/[quoteSuffix] (~32 chars context
+ *     each side) — the fallback when position no longer matches, and the part that makes
+ *     a highlight survive re-import and repagination.
  *
- * The anchor is deliberately document-relative (§2.5): a resource href, a character range
- * within that resource, and a text-quote selector with context on both sides. No pixel
- * positions, no page numbers.
+ * [locatorJson] carries the full Readium locator verbatim; it is the fast path handed to
+ * the rendering engine, never the source of truth — the three fields above are.
  */
 @Entity(
     tableName = "highlights",
@@ -25,11 +29,7 @@ data class HighlightEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
 
-    /**
-     * Points at [BookEntity.contentHash], not its row id, and has no foreign key on
-     * purpose: deleting a book may leave its highlights behind (the user chooses), and
-     * re-importing the same file must silently reunite them.
-     */
+    /** Points at [BookEntity.contentHash]; no FK, so orphans survive deletion (§2.1). */
     @ColumnInfo(name = "book_content_hash")
     val bookContentHash: String,
 
@@ -45,11 +45,11 @@ data class HighlightEntity(
     @ColumnInfo(name = "resource_href")
     val resourceHref: String,
 
-    @ColumnInfo(name = "text_position_start")
-    val textPositionStart: Int,
+    @ColumnInfo(name = "resource_progression")
+    val resourceProgression: Double?,
 
-    @ColumnInfo(name = "text_position_end")
-    val textPositionEnd: Int,
+    @ColumnInfo(name = "locator_json")
+    val locatorJson: String?,
 
     @ColumnInfo(name = "quote_prefix")
     val quotePrefix: String,
