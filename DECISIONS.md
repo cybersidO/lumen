@@ -163,6 +163,43 @@ selection itself stays entirely inside the WebView — so handles, long-press an
 extend all keep working. Lumen's toolbar is then drawn in Compose *above* that, which is
 safe because it only exists while a selection is active and sits clear of the text.
 
+## 2026-08-08 — WordNet 3.1 + CMUdict, built into one SQLite asset
+The §10 plan said Open English WordNet; the build actually uses **Princeton WordNet 3.1**,
+which is the same lexicon lineage, ships the irregular-form exception lists Morphy needs
+(`noun.exc`, `verb.exc`, `adj.exc`, `adv.exc`), and is a stable versioned download rather
+than a rolling release. Licence is the permissive BSD-style WordNet licence.
+
+**WordNet has no pronunciation data at all**, and §2.4 asks for pronunciation in the sheet.
+So CMUdict 0.7b (public domain / BSD-2) is merged in, converted from ARPAbet to IPA by
+`tools/build_dictionary.py`, restricted to lemmas WordNet knows so the rest is not dead
+weight. Result: 147,478 lemmas, 207,235 senses, 6,053 irregular forms, 35,493
+pronunciations — **20.5MB**, taking the debug APK to 39MB.
+
+Schema is normalised (`synsets` ← `senses`) rather than one flat table: a synset shared by
+several lemmas stores its definition once, which is most of the size saving.
+
+The `.db` is **not committed** — `.gitignore` excludes it and the build script regenerates
+it from the two public sources. Committing a 20MB binary to a repo whose whole point is
+being maintainable in a year would be the wrong trade.
+
+## 2026-08-08 — Morphy plus one rule WordNet does not have
+Lemmatisation follows WordNet's own Morphy: exception lists first, then suffix detachment,
+keeping only candidates the dictionary confirms. One addition: **undoubling the consonant**
+after `-ing`/`-ed` detachment. WordNet's rules turn "running" into "runn" and "stopped"
+into "stopp", neither of which is a word, so without this the reader tapping "running"
+could never reach the verb "run". Guarded so real words ending in a double letter ("pass",
+"bell") survive untouched, which is a test case.
+
+Candidates are ordered by confidence — exact headword, then irregular form, then rule — so
+"running" shows its own adjective sense first and "run" after, rather than silently
+replacing the word the reader tapped. The sheet says "from 'running'" when it resolves.
+
+## 2026-08-08 — Misses are logged too
+§2.4 calls the lookup log a feature, not telemetry. A word the dictionary could *not*
+resolve is exactly the kind of thing worth revisiting later, so `found = false` rows are
+written as well. Logging only successes would make the log quietly dishonest about what
+the reader actually struggled with.
+
 ## 2026-08-01 — Atkinson Hyperlegible as the dyslexia-friendly face
 Rejected OpenDyslexic: licensing history is muddier and its rendering at small sizes is
 worse. Atkinson Hyperlegible is SIL OFL 1.1, designed by the Braille Institute for low

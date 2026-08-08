@@ -46,6 +46,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.content.Intent
+import android.net.Uri
+import androidx.core.net.toUri
+import android.widget.Toast
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
@@ -59,6 +62,7 @@ import androidx.compose.ui.text.AnnotatedString
 import com.sidharth.lumen.feature.highlight.HighlightColor
 import com.sidharth.lumen.feature.highlight.HighlightEditSheet
 import com.sidharth.lumen.feature.highlight.SelectionToolbar
+import com.sidharth.lumen.feature.dictionary.DefinitionSheet
 import kotlinx.coroutines.launch
 import com.sidharth.lumen.R
 import com.sidharth.lumen.core.readium.readiumPreferences
@@ -254,7 +258,6 @@ fun ReaderScreen(
                 val clipboard = LocalClipboardManager.current
                 val context = LocalContext.current
                 val copiedMessage = stringResource(R.string.selection_copied)
-                val lookupNotBuilt = stringResource(R.string.selection_lookup_not_built)
                 var transientMessage by remember { mutableStateOf<String?>(null) }
 
                 if (activeSelection != null) {
@@ -276,7 +279,10 @@ fun ReaderScreen(
                                 viewModel.clearSelection()
                                 navigator?.clearSelection()
                             },
-                            onLookUp = { transientMessage = lookupNotBuilt },
+                            onLookUp = {
+                                viewModel.lookUpSelection()
+                                navigator?.clearSelection()
+                            },
                             onShare = {
                                 activeSelection?.text?.highlight?.let { text ->
                                     val send = Intent(Intent.ACTION_SEND).apply {
@@ -353,6 +359,31 @@ fun ReaderScreen(
                     viewModel.closeHighlightEditor()
                 },
                 onDelete = viewModel::deleteEditingHighlight,
+            )
+        }
+    }
+
+    (viewModel.lookup.collectAsStateWithLifecycle().value)?.let { lookupState ->
+        val sheetState = rememberModalBottomSheetState()
+        val context = LocalContext.current
+        val noBrowser = stringResource(R.string.dictionary_no_browser)
+        ModalBottomSheet(
+            onDismissRequest = viewModel::dismissLookup,
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ) {
+            DefinitionSheet(
+                state = lookupState,
+                onSearchWeb = { word ->
+                    // ACTION_VIEW to whatever browser the user has. Lumen declares no
+                    // INTERNET permission and makes no request of its own.
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        ("https://www.google.com/search?q=" + Uri.encode("define $word")).toUri(),
+                    )
+                    runCatching { context.startActivity(intent) }
+                        .onFailure { Toast.makeText(context, noBrowser, Toast.LENGTH_SHORT).show() }
+                },
             )
         }
     }

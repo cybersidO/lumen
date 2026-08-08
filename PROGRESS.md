@@ -9,7 +9,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M2 | Reader core — Readium, pagination, TOC, progress, typography | ☑ | 2026-08-01 · position restore is position-granular, see below |
 | M3 | Gestures — full §2.3 layer, edge drags, zone-preview settings | ☑ | 2026-08-04 · two-finger toggle off by default |
 | M4 | Highlighting — selection toolbar, locator anchoring, notes, tags | ☑ | 2026-08-08 · verified 80% → 300% font across a process kill |
-| M5 | Dictionary — OEWN DB, Morphy lemmatizer, sheet, lookup log | ☐ | |
+| M5 | Dictionary — WordNet DB, Morphy lemmatizer, sheet, lookup log | ☑ | 2026-08-08 · verified in airplane mode |
 | M6 | Notes database — cross-book list, FTS, export, backup/restore | ☐ | |
 | M7 | Review mode — flashcard queue, spaced intervals | ☐ | |
 | M8 | PDF — render, page turn, rect highlights, text lookup | ☐ | |
@@ -154,6 +154,33 @@ pages I looked at. Instrumenting the decoration path (`supportsHighlight=true`,
 `applying 1 decorations`) disproved the theory in one build. The fix was to force the
 book's saved locator to the highlight's own locator, which made the check deterministic.
 Had I "fixed" the non-bug first, I would have broken working code.
+
+## M5 verification — 2026-08-08
+
+| Command | Result |
+|---|---|
+| `./gradlew :app:assembleDebug` | BUILD SUCCESSFUL |
+| `./gradlew test` | 90 tests, 0 failures |
+| `./gradlew connectedAndroidTest` | 31 tests, 0 failures |
+| `./gradlew lint` | 0 errors |
+
+**The done-when, with the network genuinely off.** `adb shell cmd connectivity airplane-mode
+enable`, confirmed by `ping 8.8.8.8` → *Network is unreachable*, then the instrumented
+suite ran against the real bundled 20.5MB asset:
+
+- `runningResolvesToRun` — "running" → its own adjective/noun senses **and** the verb "run"
+- `miceResolvesToMouse` — "mice" → "mouse", rodent sense present
+- `betterResolvesToGoodAndWell` — "better" → both "good" and "well"
+- plus pronunciation present, punctuation trimmed, unknown words empty, and the
+  asset-install path exercised from a clean slate.
+
+These live in `WordNetDictionaryTest` rather than being a one-off demo, so the bar stays
+enforced. There is no network code in the dictionary path at all and the app still declares
+**zero permissions**, so a regression cannot hide behind a silent online fallback.
+
+**Sizes:** dictionary asset 20.5MB → debug APK 39MB. R8 + resource shrinking in M9 will not
+touch the asset, so the release APK stays about this size. That is the price of "works on a
+plane" and it was the intended trade.
 
 ## Open questions for the owner
 - **Disk is at 95% (~24GB free)**, down from 39GB at M0. The Android toolchain accounts for

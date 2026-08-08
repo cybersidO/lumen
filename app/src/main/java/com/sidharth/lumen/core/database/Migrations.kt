@@ -92,3 +92,37 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
         db.execSQL("CREATE INDEX index_highlight_tags_tag_id ON highlight_tags(tag_id)")
     }
 }
+
+/**
+ * v2 → v3: the dictionary lookup log (§2.4).
+ *
+ * Purely additive — one new table, no existing column touched — so highlights cannot be
+ * affected. `LumenDatabaseMigrationTest` still runs the full v1 → v3 chain and re-asserts
+ * that a v1 highlight survives both steps intact.
+ */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE lookup_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                word TEXT NOT NULL,
+                lemma TEXT,
+                book_content_hash TEXT,
+                resource_href TEXT,
+                chapter_title TEXT,
+                sentence TEXT,
+                dictionary_id TEXT NOT NULL,
+                found INTEGER NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("CREATE INDEX index_lookup_events_word ON lookup_events(word)")
+        db.execSQL(
+            "CREATE INDEX index_lookup_events_book_content_hash " +
+                "ON lookup_events(book_content_hash)",
+        )
+        db.execSQL("CREATE INDEX index_lookup_events_created_at ON lookup_events(created_at)")
+    }
+}

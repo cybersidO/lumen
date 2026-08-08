@@ -16,6 +16,9 @@ import com.sidharth.lumen.core.settings.ThemeMode
 import com.sidharth.lumen.feature.highlight.Highlight
 import com.sidharth.lumen.feature.highlight.HighlightColor
 import com.sidharth.lumen.feature.highlight.HighlightRepository
+import com.sidharth.lumen.feature.dictionary.LookupContext
+import com.sidharth.lumen.feature.dictionary.LookupRepository
+import com.sidharth.lumen.feature.dictionary.LookupUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -77,6 +80,7 @@ class ReaderViewModel @Inject constructor(
     private val publications: PublicationRepository,
     private val settingsRepository: SettingsRepository,
     private val highlightRepository: HighlightRepository,
+    private val lookupRepository: LookupRepository,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
@@ -331,6 +335,55 @@ class ReaderViewModel @Inject constructor(
             highlightRepository.setTags(editing.id, tags)
             _editingHighlight.value = highlightRepository.load(editing.id)
         }
+    }
+
+    // --- dictionary (M5) --------------------------------------------------------------
+
+    private val _lookup = MutableStateFlow<LookupUiState?>(null)
+    val lookup: StateFlow<LookupUiState?> = _lookup
+
+    /**
+     * Looks up the current selection (or a word passed directly). The reading position is
+     * untouched: the navigator is never rebuilt, only a sheet is shown above it.
+     */
+    fun lookUpSelection() {
+        val locator = _activeSelection.value ?: return
+        val word = locator.text.highlight?.trim().orEmpty()
+        if (word.isBlank()) return
+        lookUp(
+            word = word,
+            surrounding = listOfNotNull(
+                locator.text.before,
+                locator.text.highlight,
+                locator.text.after,
+            ).joinToString(""),
+            resourceHref = locator.href.toString(),
+        )
+        _activeSelection.value = null
+    }
+
+    fun lookUp(word: String, surrounding: String? = null, resourceHref: String? = null) {
+        val state = uiState.value as? ReaderUiState.Ready
+        _lookup.value = LookupUiState.Loading(word)
+        viewModelScope.launch {
+            val result = lookupRepository.lookup(
+                word = word,
+                context = LookupContext(
+                    bookContentHash = state?.contentHash,
+                    resourceHref = resourceHref,
+                    chapterTitle = chrome.value.chapterTitle,
+                    surroundingText = surrounding,
+                ),
+            )
+            // Guard against a second lookup started while this one was in flight.
+            if (_lookup.value is LookupUiState.Loading) {
+                _lookup.value = LookupUiState.Loaded(result)
+            }
+        }
+    }
+
+    fun dismissLookup() {
+        _lookup.value = null
     }
 
     fun deleteEditingHighlight() {

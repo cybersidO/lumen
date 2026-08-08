@@ -62,12 +62,17 @@
     <string name="selection_lookup">Look up</string>
     <string name="selection_share">Share</string>
     <string name="selection_copied">Copied to clipboard</string>
-    <string name="selection_lookup_not_built">The dictionary isn\'t built yet — it arrives in M5.</string>
     <string name="highlight_note_label">Note</string>
     <string name="highlight_tags_label">Tags</string>
     <string name="highlight_tags_hint">Separate tags with commas</string>
     <string name="highlight_delete">Delete highlight</string>
     <string name="highlight_save">Save</string>
+
+    <!-- Dictionary -->
+    <string name="dictionary_resolved_from">from “%1$s”</string>
+    <string name="dictionary_not_found">Not in the offline dictionary.</string>
+    <string name="dictionary_search_web">Search the web (leaves Lumen)</string>
+    <string name="dictionary_no_browser">No browser is installed to open that.</string>
 
     <!-- Gesture settings -->
     <string name="settings_gestures">Reading gestures</string>
