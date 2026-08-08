@@ -89,6 +89,9 @@ class ReaderViewModel @Inject constructor(
         "ReaderViewModel requires a bookId argument"
     }
 
+    /** Set when arriving from the notes list; -1 means "open where I left off". */
+    private val jumpToHighlightId: Long = savedStateHandle.get<Long>("highlightId") ?: -1L
+
     private val _uiState = MutableStateFlow<ReaderUiState>(ReaderUiState.Loading)
     val uiState: StateFlow<ReaderUiState> = _uiState
 
@@ -121,12 +124,23 @@ class ReaderViewModel @Inject constructor(
                 .onSuccess { publication ->
                     _tableOfContents.value = flattenToc(publication.tableOfContents)
                     _chrome.value = _chrome.value.copy(progressFraction = book.progressFraction)
+                    // Arriving from the notes list overrides the saved reading position,
+                    // so the entry the user tapped is what actually opens (§2.6).
+                    val jumpLocator = jumpToHighlightId
+                        .takeIf { it > 0 }
+                        ?.let { id ->
+                            withContext(ioDispatcher) {
+                                highlightRepository.load(id)?.locator
+                            }
+                        }
+
                     _uiState.value = ReaderUiState.Ready(
                         bookId = bookId,
                         contentHash = book.contentHash,
                         title = book.title,
                         publication = publication,
-                        initialLocator = book.currentLocatorJson?.let(::parseLocator),
+                        initialLocator = jumpLocator
+                            ?: book.currentLocatorJson?.let(::parseLocator),
                     )
                     withContext(ioDispatcher) {
                         bookDao.markOpened(bookId, System.currentTimeMillis())

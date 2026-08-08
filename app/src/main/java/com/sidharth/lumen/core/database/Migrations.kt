@@ -126,3 +126,76 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         db.execSQL("CREATE INDEX index_lookup_events_created_at ON lookup_events(created_at)")
     }
 }
+
+/**
+ * v3 → v4: full-text search over highlights and notes (§2.6).
+ *
+ * The DDL and trigger definitions below are copied **verbatim** from Room's own exported
+ * schema (`app/schemas/.../4.json`) rather than written by hand. Room validates the live
+ * schema against that JSON on open, so anything less than an exact match — a backtick, a
+ * trigger name — fails at runtime with an unhelpful error. Deriving them from the export
+ * is the only way to be sure they agree.
+ *
+ * Both indexes are external-content (`content=`), so they hold no copy of the text and
+ * the `INSERT INTO ..._fts(..._fts) VALUES('rebuild')` statements at the end populate them
+ * from the existing rows. Highlights themselves are untouched.
+ */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS `highlights_fts` " +
+                "USING FTS4(`quote_exact` TEXT NOT NULL, content=`highlights`)",
+        )
+        db.execSQL(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_highlights_fts_BEFORE_UPDATE " +
+                "BEFORE UPDATE ON `highlights` BEGIN " +
+                "DELETE FROM `highlights_fts` WHERE `docid`=OLD.`rowid`; END",
+        )
+        db.execSQL(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_highlights_fts_BEFORE_DELETE " +
+                "BEFORE DELETE ON `highlights` BEGIN " +
+                "DELETE FROM `highlights_fts` WHERE `docid`=OLD.`rowid`; END",
+        )
+        db.execSQL(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_highlights_fts_AFTER_UPDATE " +
+                "AFTER UPDATE ON `highlights` BEGIN " +
+                "INSERT INTO `highlights_fts`(`docid`, `quote_exact`) " +
+                "VALUES (NEW.`rowid`, NEW.`quote_exact`); END",
+        )
+        db.execSQL(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_highlights_fts_AFTER_INSERT " +
+                "AFTER INSERT ON `highlights` BEGIN " +
+                "INSERT INTO `highlights_fts`(`docid`, `quote_exact`) " +
+                "VALUES (NEW.`rowid`, NEW.`quote_exact`); END",
+        )
+
+        db.execSQL(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS `notes_fts` " +
+                "USING FTS4(`body` TEXT NOT NULL, content=`notes`)",
+        )
+        db.execSQL(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_notes_fts_BEFORE_UPDATE " +
+                "BEFORE UPDATE ON `notes` BEGIN " +
+                "DELETE FROM `notes_fts` WHERE `docid`=OLD.`rowid`; END",
+        )
+        db.execSQL(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_notes_fts_BEFORE_DELETE " +
+                "BEFORE DELETE ON `notes` BEGIN " +
+                "DELETE FROM `notes_fts` WHERE `docid`=OLD.`rowid`; END",
+        )
+        db.execSQL(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_notes_fts_AFTER_UPDATE " +
+                "AFTER UPDATE ON `notes` BEGIN " +
+                "INSERT INTO `notes_fts`(`docid`, `body`) VALUES (NEW.`rowid`, NEW.`body`); END",
+        )
+        db.execSQL(
+            "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_notes_fts_AFTER_INSERT " +
+                "AFTER INSERT ON `notes` BEGIN " +
+                "INSERT INTO `notes_fts`(`docid`, `body`) VALUES (NEW.`rowid`, NEW.`body`); END",
+        )
+
+        // Populate the indexes from rows that already exist.
+        db.execSQL("INSERT INTO `highlights_fts`(`highlights_fts`) VALUES('rebuild')")
+        db.execSQL("INSERT INTO `notes_fts`(`notes_fts`) VALUES('rebuild')")
+    }
+}

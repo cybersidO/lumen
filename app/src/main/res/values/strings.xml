@@ -68,6 +68,34 @@
     <string name="highlight_delete">Delete highlight</string>
     <string name="highlight_save">Save</string>
 
+    <!-- Notes database -->
+    <string name="notes_title">Notes</string>
+    <string name="notes_open">Notes and highlights</string>
+    <string name="notes_search_hint">Search highlights, notes and words</string>
+    <string name="notes_filters">Filters</string>
+    <string name="notes_clear_filters">Clear filters</string>
+    <string name="notes_export">Export and backup</string>
+    <string name="notes_export_markdown">Export Markdown (one file per book)</string>
+    <string name="notes_export_csv">Export CSV</string>
+    <string name="notes_export_json">Export JSON</string>
+    <string name="notes_backup">Back up everything…</string>
+    <string name="notes_restore">Restore from backup…</string>
+    <string name="notes_restore_title">Restore this backup?</string>
+    <string name="notes_restore_warning">This replaces your current highlights, notes, looked-up words and settings with the ones in the backup. It does not merge them. Anything not in the backup will be gone.</string>
+    <string name="notes_restore_confirm">Replace and restore</string>
+    <string name="notes_empty">Nothing saved yet. Highlights, notes and words you look up will collect here.</string>
+    <string name="notes_empty_filtered">Nothing matches those filters.</string>
+    <plurals name="notes_msg_exported_markdown">
+        <item quantity="one">Exported %1$d Markdown file</item>
+        <item quantity="other">Exported %1$d Markdown files</item>
+    </plurals>
+    <string name="notes_msg_exported_file">Export written</string>
+    <string name="notes_msg_backed_up">Backed up (%1$d KB)</string>
+    <plurals name="notes_msg_restored">
+        <item quantity="one">Restored %1$d highlight</item>
+        <item quantity="other">Restored %1$d highlights</item>
+    </plurals>
+
     <!-- Dictionary -->
     <string name="dictionary_resolved_from">from “%1$s”</string>
     <string name="dictionary_not_found">Not in the offline dictionary.</string>

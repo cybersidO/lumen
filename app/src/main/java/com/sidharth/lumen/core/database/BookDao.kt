@@ -20,6 +20,12 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE id = :id LIMIT 1")
     suspend fun findById(id: Long): BookEntity?
 
+    @Query("SELECT * FROM books ORDER BY title")
+    suspend fun observeAllOnce(): List<BookEntity>
+
+    @Query("SELECT * FROM books WHERE content_hash = :contentHash LIMIT 1")
+    suspend fun findByHash(contentHash: String): BookEntity?
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(book: BookEntity): Long
 

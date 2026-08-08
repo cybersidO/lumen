@@ -112,7 +112,7 @@ private fun ColorSwatch(
                 },
             )
             .clickable(onClick = onClick)
-            .semantics { contentDescription = "Highlight ${'$'}{color.displayName}" }
+            .semantics { contentDescription = "Highlight " + color.displayName }
             .testTag(colorSwatchTag(color)),
     )
 }

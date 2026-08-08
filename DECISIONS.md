@@ -200,6 +200,45 @@ resolve is exactly the kind of thing worth revisiting later, so `found = false` 
 written as well. Logging only successes would make the log quietly dishonest about what
 the reader actually struggled with.
 
+## 2026-08-08 — FTS migration DDL copied verbatim from Room's exported schema
+`highlights_fts` and `notes_fts` are **external-content** FTS4 tables (`content=`), so they
+store no second copy of the text and Room generates triggers that keep them in step — the
+usual way a hand-maintained search index silently drifts.
+
+The migration's `CREATE VIRTUAL TABLE` and four trigger statements per table are copied
+character-for-character out of `app/schemas/.../4.json` rather than written by hand. Room
+validates the live schema against that JSON on open, so a single differing backtick or
+trigger name fails at runtime with an unhelpful error. Deriving the DDL from the export is
+the only way to be certain they agree.
+
+## 2026-08-08 — Search is quoted-phrase-with-prefix, never raw user input
+`NotesRepository.ftsQuery` strips every non-alphanumeric character and wraps each term as
+`"term"*`. FTS4's MATCH syntax treats `"`, `*`, `-`, `OR`, `NEAR` as operators, so passing
+what the user typed straight through turns a stray apostrophe into a syntax error that
+surfaces as *"no results"* with no explanation. Quoting also makes prefix matching work,
+so half a typed word finds the highlight.
+
+## 2026-08-08 — Restore replaces, and says so before it does
+Merge semantics for highlights across two databases are genuinely ambiguous: same book,
+overlapping ranges, conflicting notes and tags. A restore that silently half-merges is
+worse than one that plainly replaces, so `BackupManager` swaps the database wholesale and
+the confirmation dialog states in plain words that anything not in the backup will be gone.
+
+Two details that matter for the data actually surviving: the WAL is checkpointed before the
+file is copied (otherwise the newest highlights are still in `-wal` and missing from the
+backup), and the incoming ZIP is fully unpacked and validated in a staging directory before
+anything live is deleted — so a truncated or foreign file leaves the library untouched
+rather than half-destroyed.
+
+The format is a plain ZIP of the SQLite file plus a JSON settings dump, deliberately
+inspectable: if this app is ever gone, the highlights should still open in any SQLite tool.
+
+## 2026-08-08 — JSON export tested on-device, not with a new dependency
+`org.json` on the JVM unit-test classpath is a stub that throws "not mocked". Rather than
+add a third-party JSON library purely to test the one Android already ships,
+`ExportersJsonTest` runs in `androidTest` where the real implementation lives. Markdown and
+CSV — pure string work — stay as fast JVM tests.
+
 ## 2026-08-01 — Atkinson Hyperlegible as the dyslexia-friendly face
 Rejected OpenDyslexic: licensing history is muddier and its rendering at small sizes is
 worse. Atkinson Hyperlegible is SIL OFL 1.1, designed by the Braille Institute for low

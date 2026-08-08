@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.LibraryBooks
@@ -56,6 +57,7 @@ import com.sidharth.lumen.core.books.ImportProgress
 
 const val LibraryImportButtonTag = "library_import_button"
 const val LibrarySettingsButtonTag = "library_settings_button"
+const val LibraryNotesButtonTag = "library_notes_button"
 const val LibrarySearchFieldTag = "library_search_field"
 const val LibrarySortButtonTag = "library_sort_button"
 
@@ -63,6 +65,7 @@ const val LibrarySortButtonTag = "library_sort_button"
 @Composable
 fun LibraryScreen(
     onOpenSettings: () -> Unit,
+    onOpenNotes: () -> Unit,
     onOpenBook: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
@@ -119,6 +122,15 @@ fun LibraryScreen(
                                 viewModel.setSort(it)
                                 sortMenuOpen = false
                             },
+                        )
+                    }
+                    IconButton(
+                        onClick = onOpenNotes,
+                        modifier = Modifier.testTag(LibraryNotesButtonTag),
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.StickyNote2,
+                            contentDescription = stringResource(R.string.notes_open),
                         )
                     }
                     IconButton(

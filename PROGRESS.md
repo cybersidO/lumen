@@ -10,7 +10,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M3 | Gestures — full §2.3 layer, edge drags, zone-preview settings | ☑ | 2026-08-04 · two-finger toggle off by default |
 | M4 | Highlighting — selection toolbar, locator anchoring, notes, tags | ☑ | 2026-08-08 · verified 80% → 300% font across a process kill |
 | M5 | Dictionary — WordNet DB, Morphy lemmatizer, sheet, lookup log | ☑ | 2026-08-08 · verified in airplane mode |
-| M6 | Notes database — cross-book list, FTS, export, backup/restore | ☐ | |
+| M6 | Notes database — cross-book list, FTS, export, backup/restore | ☑ | 2026-08-08 · full wipe-and-restore verified on device |
 | M7 | Review mode — flashcard queue, spaced intervals | ☐ | |
 | M8 | PDF — render, page turn, rect highlights, text lookup | ☐ | |
 | M9 | Ship — signed release APK, R8 verified, README | ☐ | |
@@ -181,6 +181,44 @@ enforced. There is no network code in the dictionary path at all and the app sti
 **Sizes:** dictionary asset 20.5MB → debug APK 39MB. R8 + resource shrinking in M9 will not
 touch the asset, so the release APK stays about this size. That is the price of "works on a
 plane" and it was the intended trade.
+
+## M6 verification — 2026-08-08
+
+| Command | Result |
+|---|---|
+| `./gradlew :app:assembleDebug` | BUILD SUCCESSFUL |
+| `./gradlew test` | 105 tests, 0 failures |
+| `./gradlew connectedAndroidTest` | 36 tests, 0 failures |
+| `./gradlew lint` | 0 errors, 4 warnings (deliberate pins) |
+
+**The done-when, run end to end on the emulator — every step of it:**
+1. Highlighted a phrase in *The Martian*; it appeared in the cross-book notes list with
+   its book and chapter.
+2. Searched from the notes screen: a non-matching query emptied the list
+   ("Nothing matches those filters"), the matching one returned the highlight — so the
+   FTS filter is demonstrably doing the work, not just rendering everything.
+3. Tapped the entry → the reader opened **on the exact page**, highlight visible and
+   tinted (confirmed by pixel-scanning the framebuffer).
+4. Exported Markdown through the real SAF directory picker into a vault folder. The file
+   on disk has valid YAML frontmatter (title, author, count, content hash), an `H1`, a
+   `## Chapter 1` heading and the quote as a blockquote.
+5. Backed up to `lumen-backup.zip` (10.5 KB), then **`adb shell pm clear`** — library
+   confirmed empty — then restored from that zip.
+6. Back afterwards: 3 books, the highlight with its quote and chapter, the **FTS index
+   working** (`MATCH 'They*'` returns the row), and the persisted theme.
+
+Screenshots in `docs/screenshots/m6/`.
+
+**A defect found while verifying, introduced in M4.** Every highlight colour swatch
+announced itself to screen readers as the literal text `Highlight ${color.displayName}` —
+an escaping mistake in the patch that added the label meant the Kotlin emitted a dollar
+sign instead of interpolating. Fixed; the swatches now read "Highlight Yellow" and the
+rest. It was only visible because the accessibility tree is how these scripts drive the UI.
+
+**Platform limit worth knowing:** Android refuses to grant directory access to the
+`Download` root, so the Markdown export needs a *sub*folder (a vault directory, which is
+the realistic case anyway). Nothing to fix — the picker simply disables "Use this folder"
+there.
 
 ## Open questions for the owner
 - **Disk is at 95% (~24GB free)**, down from 39GB at M0. The Android toolchain accounts for
