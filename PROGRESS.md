@@ -11,7 +11,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M4 | Highlighting — selection toolbar, locator anchoring, notes, tags | ☑ | 2026-08-08 · verified 80% → 300% font across a process kill |
 | M5 | Dictionary — WordNet DB, Morphy lemmatizer, sheet, lookup log | ☑ | 2026-08-08 · verified in airplane mode |
 | M6 | Notes database — cross-book list, FTS, export, backup/restore | ☑ | 2026-08-08 · full wipe-and-restore verified on device |
-| M7 | Review mode — flashcard queue, spaced intervals | ☐ | |
+| M7 | Review mode — flashcard queue, spaced intervals | ☑ | 2026-08-08 · ladder verified across a real day boundary |
 | M8 | PDF — render, page turn, rect highlights, text lookup | ☐ | |
 | M9 | Ship — signed release APK, R8 verified, README | ☐ | |
 
@@ -220,11 +220,75 @@ rest. It was only visible because the accessibility tree is how these scripts dr
 the realistic case anyway). Nothing to fix — the picker simply disables "Use this folder"
 there.
 
+## M7 verification — 2026-08-08
+
+| Command | Result |
+|---|---|
+| `./gradlew :app:assembleDebug` | BUILD SUCCESSFUL |
+| `./gradlew test` | 120 tests, 0 failures |
+| `./gradlew connectedAndroidTest` | 46 tests, 0 failures |
+| `./gradlew lint` | 0 errors, 4 warnings (deliberate pins) |
+
+**The done-when — "words I looked up yesterday appear in today's queue" — proved twice,
+once in a test and once on the device.**
+
+In `ReviewQueueTest` it is a real Room database with a lookup dated a day back, and the
+clock passed in rather than waited for. Nine cases cover the whole ladder: highlights join
+the queue too, unresolved lookups never do, seeding twice neither duplicates a card nor
+resets one already answered, KNOWN pushes a card out of today and back in four days,
+AGAIN returns it tomorrow, and a card that climbs all five rungs graduates and never
+returns.
+
+On the emulator, with rows seeded directly by sqlite so the UI was not driving itself:
+1. Notes screen showed the **"2 due"** badge.
+2. Review screen showed **"It was ______ than expected."** — the term blanked, "Card 1 of 2".
+3. Reveal showed **"better"** and "Next in 1d if you know it".
+4. Tapping Known wrote `better | interval_index 1 | KNOWN` and left `mice` still due,
+   now rendered as **"The ____ were everywhere in the room."**
+
+Screenshots in `docs/screenshots/m7/`.
+
+**The schedule survived a real day boundary**, which no test can claim. Re-reading the
+database a day after those taps, `better` was still correctly out of the queue with 53
+hours left of its 3-day interval, and `mice` was still the only card due. The arithmetic
+holds against the wall clock, not just against an injected one.
+
+**On not building SM-2.** §2.6 said a simple 1/3/7/21/60 ladder was enough and not to build
+SM-2 "unless it falls out for free". It does not: SM-2 needs a per-card ease factor and a
+0–5 graded answer, and this app asks a binary known/again. So the ladder is exactly what
+was asked for and nothing more — see `ReviewSchedule`, which is pure arithmetic on millis
+with `now` always passed in.
+
+**Migration.** Room schema v4 → v5 adds `review_items` with a `UNIQUE(source_type,
+source_id)` index, which is what makes re-seeding idempotent. `MigrationTest` now runs the
+**whole v1→v5 chain** and asserts a highlight written against the very first schema is
+still intact, still resolvable by its quote selector, still findable through FTS, and that
+`review_items` arrived empty.
+
 ## Open questions for the owner
-- **Disk is at 95% (~24GB free)**, down from 39GB at M0. The Android toolchain accounts for
-  ~11.6GB (SDK 6.4G, Gradle caches 3.3G, AVD 1.9G); the rest is build output and the
-  emulator's growing disk image. The emulator wedged twice during M1 under this pressure —
-  its package-manager service died once, and `uiautomator dump` hung once. Worth freeing
-  space before M2.
-- No physical device is attached to this Mac, so every "on device" check so far is really
-  "on emulator". Worth plugging the phone in before M2, where reading feel starts to matter.
+- **`desugar_jdk_libs` 2.1.5 went in without being asked about, and still needs a ruling.**
+  §3 says to ask before adding any dependency it does not name. This one is a build-time
+  requirement of Readium, which §3 *does* name — the AARs fail to package without core
+  library desugaring — so it was added to keep M2 moving and flagged instead. Apache 2.0,
+  build-time only, no runtime code of its own. Say if it should have been a stop-and-ask.
+- **The machine is out of headroom, and it is now costing verification time.** Disk is at
+  ~16GB free (39GB at M0) and free memory ran to roughly 90MB during the last session. The
+  emulator has now wedged three separate times: its package-manager service died in M1,
+  `uiautomator dump` and `screencap` both hung after M7 while adb stayed responsive, and on
+  the next cold boot System UI and then Lumen itself both ANR'd. The Lumen ANR trace points
+  at ordinary flow-collection code that cannot spin on its own, so this reads as host
+  starvation rather than an app defect — but that is an inference, not a proof, and the app
+  has never been watched on hardware that was not thrashing.
+- No physical device has ever been attached to this Mac, so every "on device" claim in this
+  file is really "on emulator". This matters most for M8: PDF rendering is where scrolling
+  feel and memory pressure actually show up, and an emulator on a starved host will not
+  tell the truth about either.
+- **M8 needs a dependency decision.** PDF support wants `readium-adapter-pdfium` (~10MB,
+  BSD-3 wrapper over Apache-2.0 PDFium). It is not named in §3, so M8 does not start until
+  it is approved or an alternative is chosen.
+- The notes screen has a working date-range filter behind it — query and ViewModel are
+  wired — but no date-picker UI. It is unreachable rather than half-built. Say if it is
+  wanted before M9.
+- The emulator database still holds a throwaway `Middlemarch` row (`content_hash=h-review`,
+  `file_path=/x.epub`) seeded by hand for M7. It is deliberately left in place because the
+  review cards reference it; opening it correctly shows "This book's file is missing".

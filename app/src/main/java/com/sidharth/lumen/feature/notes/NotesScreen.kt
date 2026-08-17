@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.IosShare
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SettingsBackupRestore
 import androidx.compose.material3.AlertDialog
@@ -70,6 +71,7 @@ import com.sidharth.lumen.feature.highlight.HighlightColor
 
 const val NotesSearchFieldTag = "notes_search_field"
 const val NotesListTag = "notes_list"
+const val NotesReviewButtonTag = "notes_review_button"
 fun notesEntryTag(kind: String, id: Long) = "notes_entry_${kind}_$id"
 
 /**
@@ -80,6 +82,7 @@ fun notesEntryTag(kind: String, id: Long) = "notes_entry_${kind}_$id"
 @Composable
 fun NotesScreen(
     onBack: () -> Unit,
+    onOpenReview: () -> Unit,
     onOpenBook: (bookId: Long, highlightId: Long?) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: NotesViewModel = hiltViewModel(),
@@ -91,6 +94,7 @@ fun NotesScreen(
     val message by viewModel.message.collectAsStateWithLifecycle()
     val jump by viewModel.jump.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val dueCount by viewModel.dueCount.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -168,6 +172,26 @@ fun NotesScreen(
                     }
                 },
                 actions = {
+                    // The due count is the whole point of the badge: it is the reason to
+                    // open review at all, so it sits on the screen the user is already on.
+                    if (dueCount > 0) {
+                        TextButton(
+                            onClick = onOpenReview,
+                            modifier = Modifier.testTag(NotesReviewButtonTag),
+                        ) {
+                            Text(pluralStringResource(R.plurals.review_due_badge, dueCount, dueCount))
+                        }
+                    } else {
+                        IconButton(
+                            onClick = onOpenReview,
+                            modifier = Modifier.testTag(NotesReviewButtonTag),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.School,
+                                contentDescription = stringResource(R.string.review_open),
+                            )
+                        }
+                    }
                     IconButton(onClick = { showFilters = !showFilters }) {
                         Icon(
                             imageVector = Icons.Outlined.FilterList,

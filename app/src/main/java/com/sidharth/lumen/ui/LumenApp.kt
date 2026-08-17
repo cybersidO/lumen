@@ -11,6 +11,7 @@ import androidx.navigation.navArgument
 import com.sidharth.lumen.core.settings.ResolvedTheme
 import com.sidharth.lumen.feature.library.LibraryScreen
 import com.sidharth.lumen.feature.notes.NotesScreen
+import com.sidharth.lumen.feature.review.ReviewScreen
 import com.sidharth.lumen.feature.reader.ReaderScreen
 import com.sidharth.lumen.feature.settings.SettingsScreen
 
@@ -22,6 +23,7 @@ object Routes {
     const val LIBRARY = "library"
     const val SETTINGS = "settings"
     const val NOTES = "notes"
+    const val REVIEW = "review"
     const val READER = "reader/{bookId}?highlightId={highlightId}"
 
     /** [highlightId] is set when arriving from the notes list, to jump to that spot. */
@@ -48,10 +50,14 @@ fun LumenApp(resolvedTheme: ResolvedTheme) {
             composable(Routes.NOTES) {
                 NotesScreen(
                     onBack = { navController.popBackStack() },
+                    onOpenReview = { navController.navigate(Routes.REVIEW) },
                     onOpenBook = { bookId, highlightId ->
                         navController.navigate(Routes.reader(bookId, highlightId))
                     },
                 )
+            }
+            composable(Routes.REVIEW) {
+                ReviewScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = Routes.READER,

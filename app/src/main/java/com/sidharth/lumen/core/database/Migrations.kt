@@ -199,3 +199,35 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         db.execSQL("INSERT INTO `notes_fts`(`notes_fts`) VALUES('rebuild')")
     }
 }
+
+/**
+ * v4 → v5: the review queue (§2.6 / §4's ReviewItem).
+ *
+ * Purely additive — one new table and its indexes — so highlights, notes and the FTS
+ * indexes are untouched. The migration test still runs the whole v1 → v5 chain and
+ * re-asserts that a v1 highlight arrives intact at the far end.
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE review_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                source_type TEXT NOT NULL,
+                source_id INTEGER NOT NULL,
+                interval_index INTEGER NOT NULL,
+                due_at INTEGER NOT NULL,
+                last_result TEXT,
+                created_at INTEGER NOT NULL
+            )
+            """.trimIndent(),
+        )
+        // Unique on the source pair: seeding is an INSERT OR IGNORE sweep, so this is what
+        // stops a word looked up twice from becoming two cards.
+        db.execSQL(
+            "CREATE UNIQUE INDEX index_review_items_source_type_source_id " +
+                "ON review_items(source_type, source_id)",
+        )
+        db.execSQL("CREATE INDEX index_review_items_due_at ON review_items(due_at)")
+    }
+}

@@ -4,6 +4,7 @@ import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.sidharth.lumen.feature.highlight.QuoteFinder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -14,7 +15,7 @@ import org.junit.runner.RunWith
 /**
  * §4: "Any migration that risks highlights must be written with a test that populates the
  * old schema, migrates, and asserts every highlight still resolves." This is that test
- * for v1 → v2.
+ * for every migration this app has shipped.
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
@@ -109,7 +110,7 @@ class MigrationTest {
 
         db.query("SELECT quote_prefix, quote_exact, quote_suffix FROM highlights").use { cursor ->
             cursor.moveToFirst()
-            val match = com.sidharth.lumen.feature.highlight.QuoteFinder.find(
+            val match = QuoteFinder.find(
                 document = document,
                 prefix = cursor.getString(0),
                 exact = cursor.getString(1),
@@ -121,5 +122,74 @@ class MigrationTest {
             )
             assertTrue(match!!.contextMatched)
         }
+    }
+
+    /**
+     * The whole chain, in one go. Each individual migration is additive after v2, but the
+     * guarantee §4 actually asks for is end-to-end: a highlight written against the very
+     * first schema must still be intact — and still resolvable — after every migration the
+     * app has ever shipped.
+     */
+    @Test
+    fun migrateV1ToLatest_keepsTheHighlightIntactAndResolvable() {
+        helper.createDatabase(dbName, 1).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO highlights
+                    (book_content_hash, color_id, created_at, updated_at, resource_href,
+                     text_position_start, text_position_end,
+                     quote_prefix, quote_exact, quote_suffix, chapter_title, progress_fraction)
+                VALUES
+                    ('hash-chain', 3, 555, 666, '/OEBPS/ch4.xhtml', 40, 60,
+                     'nuzzled into his ', 'breast in an effort', ' to escape the',
+                     'Chapter Four', 0.42)
+                """.trimIndent(),
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(
+            dbName,
+            LumenDatabase.SCHEMA_VERSION,
+            true,
+            MIGRATION_1_2,
+            MIGRATION_2_3,
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+        )
+
+        db.query("SELECT * FROM highlights").use { cursor ->
+            assertEquals(1, cursor.count)
+            cursor.moveToFirst()
+            fun col(name: String) = cursor.getColumnIndexOrThrow(name)
+            assertEquals("hash-chain", cursor.getString(col("book_content_hash")))
+            assertEquals(3, cursor.getInt(col("color_id")))
+            assertEquals(555, cursor.getLong(col("created_at")))
+            assertEquals("/OEBPS/ch4.xhtml", cursor.getString(col("resource_href")))
+            assertEquals("breast in an effort", cursor.getString(col("quote_exact")))
+            assertEquals("Chapter Four", cursor.getString(col("chapter_title")))
+            assertEquals(0.42f, cursor.getFloat(col("progress_fraction")), 1e-5f)
+        }
+
+        // Still resolvable by its quote selector after five schema versions.
+        val document = "Winston Smith, his chin nuzzled into his breast in an effort to " +
+            "escape the vile wind, slipped quickly through the glass doors."
+        db.query("SELECT quote_prefix, quote_exact, quote_suffix FROM highlights").use { cursor ->
+            cursor.moveToFirst()
+            val match = QuoteFinder.find(document, cursor.getString(0), cursor.getString(1), cursor.getString(2))
+            assertEquals("breast in an effort", match?.let { document.substring(it.start, it.end) })
+            assertTrue(match!!.contextMatched)
+        }
+
+        // The FTS index arrived in v4 and must have been rebuilt from the existing row.
+        db.query(
+            "SELECT quote_exact FROM highlights WHERE id IN " +
+                "(SELECT rowid FROM highlights_fts WHERE highlights_fts MATCH ?)",
+            arrayOf("\"breast\"*"),
+        ).use { cursor ->
+            assertEquals("the migrated highlight should be searchable", 1, cursor.count)
+        }
+
+        // And the v5 table exists and is empty.
+        db.query("SELECT COUNT(*) FROM review_items").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
     }
 }

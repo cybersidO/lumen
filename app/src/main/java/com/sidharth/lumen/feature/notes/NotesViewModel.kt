@@ -9,6 +9,7 @@ import com.sidharth.lumen.core.database.NoteListRow
 import com.sidharth.lumen.core.database.TagEntity
 import com.sidharth.lumen.core.di.IoDispatcher
 import com.sidharth.lumen.feature.highlight.HighlightColor
+import com.sidharth.lumen.feature.review.ReviewRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -44,6 +45,7 @@ class NotesViewModel @Inject constructor(
     private val backupManager: BackupManager,
     private val bookDao: BookDao,
     private val highlightDao: HighlightDao,
+    private val reviewRepository: ReviewRepository,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
@@ -69,6 +71,16 @@ class NotesViewModel @Inject constructor(
 
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy
+
+    /** §2.6's daily due count, shown as a badge next to the review entry point. */
+    val dueCount: StateFlow<Int> = reviewRepository.observeDueCount()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    init {
+        // Keeps the badge honest the moment the screen opens, without waiting for the
+        // user to enter review first.
+        viewModelScope.launch { reviewRepository.seed() }
+    }
 
     // --- filtering ---------------------------------------------------------------------
 

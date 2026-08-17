@@ -96,6 +96,24 @@
         <item quantity="other">Restored %1$d highlights</item>
     </plurals>
 
+    <!-- Review -->
+    <string name="review_title">Review</string>
+    <string name="review_open">Review due items</string>
+    <string name="review_progress">Card %1$d of %2$d</string>
+    <string name="review_reveal">Reveal</string>
+    <string name="review_known">Known</string>
+    <string name="review_again">Review again</string>
+    <string name="review_interval">Next in %1$s if you know it</string>
+    <string name="review_caught_up">Nothing due right now.</string>
+    <plurals name="review_session_summary">
+        <item quantity="one">You reviewed %1$d card.</item>
+        <item quantity="other">You reviewed %1$d cards.</item>
+    </plurals>
+    <plurals name="review_due_badge">
+        <item quantity="one">%1$d due</item>
+        <item quantity="other">%1$d due</item>
+    </plurals>
+
     <!-- Dictionary -->
     <string name="dictionary_resolved_from">from “%1$s”</string>
     <string name="dictionary_not_found">Not in the offline dictionary.</string>

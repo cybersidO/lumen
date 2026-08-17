@@ -239,6 +239,36 @@ add a third-party JSON library purely to test the one Android already ships,
 `ExportersJsonTest` runs in `androidTest` where the real implementation lives. Markdown and
 CSV — pure string work — stay as fast JVM tests.
 
+## 2026-08-08 — The interval ladder, and explicitly not SM-2
+§2.6 says "a simple spaced-interval schedule (1d, 3d, 7d, 21d, 60d) is enough; don't build
+a full SM-2 unless it falls out for free." It does not fall out for free: SM-2 needs a
+per-card ease factor and a graded 0–5 answer, and this app asks a binary "known / review
+again". So the ladder is exactly what was specified and nothing more.
+
+Two choices inside it worth recording:
+
+**A newly captured word is due immediately, not tomorrow.** Making the first showing
+1 day out means something saved this morning is invisible all day, which reads as the
+feature being broken rather than as a scheduling decision. It is also what makes §M7's
+acceptance condition — "words looked up yesterday appear in today's queue" — true by
+construction rather than by accident.
+
+**Graduated cards keep their row.** A card past the last rung is filtered out of the queue
+rather than deleted, because deleting it would let the seeding sweep re-create it and start
+the whole ladder again.
+
+## 2026-08-08 — Seeding is an idempotent sweep, guarded by a unique index
+The queue is topped up by inserting every eligible word and highlight with
+`INSERT OR IGNORE`, on every visit to the notes screen. `UNIQUE(source_type, source_id)` is
+what makes that safe: a word looked up five times still yields one card, and a later lookup
+never resets a schedule the reader has already worked through. Rejected tracking "last seed
+time" — it would need to be right across restores and clock changes, for no benefit.
+
+## 2026-08-08 — The review session is a snapshot, not a live query
+`ReviewViewModel` takes `.first()` of the due list rather than collecting it. Observing
+would reshuffle the queue underneath the reader as each answer changes a due date — cards
+vanishing mid-session. A session should be the set of cards it started with.
+
 ## 2026-08-01 — Atkinson Hyperlegible as the dyslexia-friendly face
 Rejected OpenDyslexic: licensing history is muddier and its rendering at small sizes is
 worse. Atkinson Hyperlegible is SIL OFL 1.1, designed by the Braille Institute for low
