@@ -301,3 +301,27 @@ once, on finger-up — a drag emits dozens of values a second and each edit is a
 As flagged in the §10 review: it collides with pinch-zoom and with TalkBack/magnification
 gestures. It is implemented, tested (instrumented MotionEvent streams), and a switch in
 Settings turns it on. §2.3's table is otherwise implemented as written.
+
+## 2026-08-17 — Owner ruling: a required transitive dependency may be added without stopping
+`desugar_jdk_libs` (Apache 2.0, build-time only, from the Android tools team) was added in
+M2 without asking, because Readium's AARs refuse to package without core library
+desugaring — the build produced nothing at all until it was enabled. §3 says to ask first;
+this was flagged instead of asked, and stayed open until now.
+
+Ruled: keep it, and in future when a §3-approved library cannot build without something,
+add the minimum needed, record it here, and keep moving rather than blocking. The rule
+still binds for dependencies that are a genuine choice — M8's PDF engine below was asked
+about properly, because there a real alternative existed.
+
+## 2026-08-17 — PDFium for M8, built for arm64 only
+§2's M8 asks for "text lookup where a text layer exists" in PDFs. Android's built-in
+`PdfRenderer` cannot deliver that: it rasterises a page and exposes no text geometry, so
+word lookup and word-anchored highlights are impossible — only page images and rectangles.
+Rejected it for that reason, and rejected skipping PDF entirely.
+
+Chose `readium-adapter-pdfium` (BSD-3 over Apache-2.0/BSD PDFium). It carries native code,
+so the generic cost is ~10MB across four ABIs. Since this APK is sideloaded to one known
+phone rather than published, the build will restrict to `arm64-v8a`, cutting the addition
+to roughly 4–6MB. Recorded here because that ABI restriction is a real constraint: the APK
+will not install on an x86 emulator or a 32-bit device, which is a deliberate trade and
+needs saying in the README.

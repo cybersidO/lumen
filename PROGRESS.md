@@ -266,11 +266,6 @@ still intact, still resolvable by its quote selector, still findable through FTS
 `review_items` arrived empty.
 
 ## Open questions for the owner
-- **`desugar_jdk_libs` 2.1.5 went in without being asked about, and still needs a ruling.**
-  §3 says to ask before adding any dependency it does not name. This one is a build-time
-  requirement of Readium, which §3 *does* name — the AARs fail to package without core
-  library desugaring — so it was added to keep M2 moving and flagged instead. Apache 2.0,
-  build-time only, no runtime code of its own. Say if it should have been a stop-and-ask.
 - **The machine is out of headroom, and it is now costing verification time.** Disk is at
   ~16GB free (39GB at M0) and free memory ran to roughly 90MB during the last session. The
   emulator has now wedged three separate times: its package-manager service died in M1,
@@ -283,9 +278,12 @@ still intact, still resolvable by its quote selector, still findable through FTS
   file is really "on emulator". This matters most for M8: PDF rendering is where scrolling
   feel and memory pressure actually show up, and an emulator on a starved host will not
   tell the truth about either.
-- **M8 needs a dependency decision.** PDF support wants `readium-adapter-pdfium` (~10MB,
-  BSD-3 wrapper over Apache-2.0 PDFium). It is not named in §3, so M8 does not start until
-  it is approved or an alternative is chosen.
+- ~~M8 needs a dependency decision.~~ **Settled 2026-08-17:** `readium-adapter-pdfium`
+  approved, restricted to `arm64-v8a` (~4–6MB rather than ~10MB). The emulator in use is
+  already `sdk_gphone64_arm64`, so instrumented tests are unaffected — but the APK will no
+  longer install on an x86 emulator or a 32-bit phone, and the README must say so.
+  Likewise settled: a §3-approved library that cannot build without a helper may pull that
+  helper in without stopping, recorded in DECISIONS.md rather than blocked on.
 - The notes screen has a working date-range filter behind it — query and ViewModel are
   wired — but no date-picker UI. It is unreachable rather than half-built. Say if it is
   wanted before M9.
