@@ -3,6 +3,7 @@ package com.sidharth.lumen.feature.reader
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sidharth.lumen.core.books.BookFormat
 import com.sidharth.lumen.core.database.BookDao
 import com.sidharth.lumen.core.database.HighlightEntity
 import com.sidharth.lumen.core.di.ApplicationScope
@@ -50,6 +51,12 @@ sealed interface ReaderUiState {
         val publication: Publication,
         /** Where to open. Null means "the beginning" — a book never opened before. */
         val initialLocator: Locator?,
+        /**
+         * Decides which navigator renders this book. Taken from the library row, which
+         * was written from Readium's own format detection at import — not from the file
+         * extension.
+         */
+        val format: BookFormat,
     ) : ReaderUiState
 
     data class Failed(val message: String) : ReaderUiState
@@ -141,6 +148,10 @@ class ReaderViewModel @Inject constructor(
                         publication = publication,
                         initialLocator = jumpLocator
                             ?: book.currentLocatorJson?.let(::parseLocator),
+                        // A row written before M8 has no PDF rows to worry about, and an
+                        // unrecognised value falls back to EPUB rather than failing to
+                        // open a book the user can see in their library.
+                        format = BookFormat.fromStorageName(book.format) ?: BookFormat.EPUB,
                     )
                     withContext(ioDispatcher) {
                         bookDao.markOpened(bookId, System.currentTimeMillis())

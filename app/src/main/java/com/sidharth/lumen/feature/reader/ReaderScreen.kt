@@ -65,6 +65,7 @@ import com.sidharth.lumen.feature.highlight.SelectionToolbar
 import com.sidharth.lumen.feature.dictionary.DefinitionSheet
 import kotlinx.coroutines.launch
 import com.sidharth.lumen.R
+import com.sidharth.lumen.core.books.BookFormat
 import com.sidharth.lumen.core.readium.readiumPreferences
 import com.sidharth.lumen.core.settings.ResolvedTheme
 import com.sidharth.lumen.feature.reader.gesture.ApplyWindowBrightness
@@ -105,6 +106,19 @@ fun ReaderScreen(
             )
 
             is ReaderUiState.Failed -> ReaderError(state.message, onBack)
+
+            // PDFs render through a different navigator with a genuinely smaller feature
+            // set (no text layer, no decorations — see PdfReaderContent), so they branch
+            // here rather than being forced through the EPUB path.
+            is ReaderUiState.Ready if state.format == BookFormat.PDF -> {
+                PdfReaderContent(
+                    state = state,
+                    settings = settings,
+                    chrome = chrome,
+                    viewModel = viewModel,
+                    onBack = onBack,
+                )
+            }
 
             is ReaderUiState.Ready -> {
                 val preferences = remember(settings.typography, resolvedTheme) {
@@ -405,13 +419,14 @@ fun ReaderScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReaderChrome(
+internal fun ReaderChrome(
     visible: Boolean,
     title: String,
     progressFraction: Float,
     onBack: () -> Unit,
     onOpenToc: () -> Unit,
-    onOpenTypography: () -> Unit,
+    /** Null on PDFs: a fixed-layout page does not reflow, so there is nothing to set. */
+    onOpenTypography: (() -> Unit)?,
 ) {
     Box(Modifier.fillMaxSize()) {
         AnimatedVisibility(
@@ -442,14 +457,16 @@ private fun ReaderChrome(
                             contentDescription = stringResource(R.string.reader_toc),
                         )
                     }
-                    IconButton(
-                        onClick = onOpenTypography,
-                        modifier = Modifier.testTag(ReaderTypographyButtonTag),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.FormatSize,
-                            contentDescription = stringResource(R.string.reader_typography),
-                        )
+                    onOpenTypography?.let { openTypography ->
+                        IconButton(
+                            onClick = openTypography,
+                            modifier = Modifier.testTag(ReaderTypographyButtonTag),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.FormatSize,
+                                contentDescription = stringResource(R.string.reader_typography),
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -523,7 +540,7 @@ private fun ApplyPreferences(
 }
 
 @Composable
-private fun TableOfContentsSheet(
+internal fun TableOfContentsSheet(
     entries: List<TocEntry>,
     onSelect: (TocEntry) -> Unit,
 ) {

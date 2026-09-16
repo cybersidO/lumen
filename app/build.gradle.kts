@@ -19,6 +19,15 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // M8's PDFium engine ships native code for four CPU types, which would add ~10MB.
+        // This APK is sideloaded to one known 64-bit ARM phone rather than published, so
+        // only that one is packaged (~5MB instead). The trade is real and is documented in
+        // the README: the resulting APK will NOT install on an x86/x86_64 emulator or on a
+        // 32-bit device. The arm64 emulator used for instrumented tests is unaffected.
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildTypes {
@@ -109,6 +118,7 @@ dependencies {
     implementation(libs.readium.shared)
     implementation(libs.readium.streamer)
     implementation(libs.readium.navigator)
+    implementation(libs.readium.adapter.pdfium)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     implementation(libs.kotlinx.coroutines.android)

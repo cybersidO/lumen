@@ -80,7 +80,8 @@ fun LibraryScreen(
 
     // Any file type is offered, then validated by actually parsing it. Filtering the
     // picker on "application/epub+zip" hides EPUBs from the many providers that report
-    // them as octet-stream, which looks like the file is missing.
+    // them as octet-stream, which looks like the file is missing. The parse decides both
+    // whether the file is readable and which of EPUB/PDF it actually is.
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri -> uri?.let(viewModel::import) }

@@ -37,6 +37,25 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
     var onFontSizeDragEnd: () -> Unit = {}
     var onTwoFingerTap: () -> Unit = {}
 
+    /**
+     * PDF only, and null for EPUB by design.
+     *
+     * EPUB taps are resolved from Readium's `TapEvent` instead, because only the JS layer
+     * knows whether the finger landed on a link or a selection. A PDF page has neither, so
+     * there is nothing to defer to and the View layer is the right place to decide.
+     *
+     * Observed, never consumed: the page view still receives the event, so its own
+     * scrolling and zooming keep working.
+     */
+    var onSingleTap: ((x: Float, width: Int) -> Unit)? = null
+
+    /**
+     * PDF only. A long press on an EPUB begins a text selection; on a PDF there is no text
+     * layer to select, and the reader deserves to be told that rather than left tapping at
+     * a page that never responds.
+     */
+    var onLongPress: (() -> Unit)? = null
+
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
     private val longPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
     private val density = context.resources.displayMetrics.density
@@ -154,14 +173,20 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
             }
 
             MotionEvent.ACTION_UP -> {
+                val movedFar = abs(event.x - startX) > touchSlop ||
+                    abs(event.y - startY) > touchSlop
+                val quick = event.eventTime - downTime < longPressTimeout
+
                 if (sawMultiTouch && axis != DragAxis.VERTICAL) {
-                    val movedFar = abs(event.x - startX) > touchSlop ||
-                        abs(event.y - startY) > touchSlop
-                    val quick = event.eventTime - downTime < longPressTimeout
                     if (!movedFar && quick && settings.twoFingerTapThemeEnabled) {
                         onTwoFingerTap()
                     }
                     sawMultiTouch = false
+                } else if (!sawMultiTouch && axis != DragAxis.VERTICAL && !movedFar) {
+                    // A stationary single finger: a tap if it was quick, a long press if
+                    // it lingered. Only ever reached on PDFs, where both callbacks are
+                    // set; on EPUB they are null and this does nothing.
+                    if (quick) onSingleTap?.invoke(event.x, width) else onLongPress?.invoke()
                 }
             }
         }

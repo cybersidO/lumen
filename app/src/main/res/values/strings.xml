@@ -62,6 +62,10 @@
     <string name="selection_lookup">Look up</string>
     <string name="selection_share">Share</string>
     <string name="selection_copied">Copied to clipboard</string>
+
+    <!-- Shown when a PDF page is long-pressed. PDFs render as pages, not text, so there is
+         nothing to select or look up — saying so is better than not responding. -->
+    <string name="pdf_no_text_layer">This PDF renders as pages, so there\'s no text to select or look up. Highlighting and the dictionary work in EPUBs.</string>
     <string name="highlight_note_label">Note</string>
     <string name="highlight_tags_label">Tags</string>
     <string name="highlight_tags_hint">Separate tags with commas</string>

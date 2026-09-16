@@ -4,9 +4,9 @@ enum class BookFormat(val extension: String, val displayName: String) {
     EPUB("epub", "EPUB"),
 
     /**
-     * Declared so storage paths and the `format` column don't need a migration in M8, but
-     * import refuses PDFs today rather than accepting a file it cannot open. See
-     * [BookImporter].
+     * Readable since M8. Rendering, page turns, progress and rectangle highlights work;
+     * dictionary lookup does not, because the PDF engine's Java binding exposes no text
+     * API — see DECISIONS.md and the README's PDF limits.
      */
     PDF("pdf", "PDF"),
     ;

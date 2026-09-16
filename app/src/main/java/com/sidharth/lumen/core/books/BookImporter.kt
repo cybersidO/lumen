@@ -42,7 +42,7 @@ sealed interface ImportResult {
 class BookImporter @Inject constructor(
     @ApplicationContext private val context: Context,
     private val storage: BookStorage,
-    private val metadataReader: EpubMetadataReader,
+    private val metadataReader: BookMetadataReader,
     private val bookDao: BookDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
@@ -67,15 +67,17 @@ class BookImporter @Inject constructor(
 
             onProgress(ImportProgress.Parsing)
 
-            // Parsed from the staging copy: if it turns out not to be a readable EPUB,
+            // Parsed from the staging copy: if it turns out not to be a readable book,
             // nothing has been written to the library directory to clean up.
             val metadata = metadataReader.read(staging).getOrElse { error ->
                 return@withContext ImportResult.Failed(
-                    error.message ?: "That file couldn't be read as an EPUB.",
+                    error.message ?: "That file couldn't be read as an EPUB or PDF.",
                 )
             }
 
-            val format = BookFormat.EPUB
+            // Readium's detected format, not the file extension — so the reader opened
+            // later is always the one that can actually render these bytes.
+            val format = metadata.format
             val destination = storage.bookFile(contentHash, format)
             if (!staging.renameTo(destination)) {
                 staging.copyTo(destination, overwrite = true)

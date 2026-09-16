@@ -37,7 +37,7 @@ desugarJdkLibs = "2.1.5"
 
 room = "2.8.4"
 coil = "3.5.0"          # covers (approved 2026-08-01)
-readium = "3.3.0"
+readium = "3.3.0"       # adapter-pdfium shares this version (approved 2026-08-17)
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -75,6 +75,11 @@ androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugarJdkLibs" }
+
+# PDF support (M8). Pulls readium-adapter-pdfium-{document,navigator}, which in turn pull
+# the PDFium JNI bindings from JitPack — see settings.gradle.kts, where that repository is
+# scoped to those two groups only, and DECISIONS.md for why.
+readium-adapter-pdfium = { module = "org.readium.kotlin-toolkit:readium-adapter-pdfium", version.ref = "readium" }
 
 readium-shared = { module = "org.readium.kotlin-toolkit:readium-shared", version.ref = "readium" }
 readium-streamer = { module = "org.readium.kotlin-toolkit:readium-streamer", version.ref = "readium" }
