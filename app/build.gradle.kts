@@ -1,9 +1,40 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
+
+// --- Signing -----------------------------------------------------------------------------
+// The keystore is the owner's, is never generated here, and is never committed (see
+// .gitignore). Values come from `keystore.properties` at the repo root, or from
+// LUMEN_KEYSTORE_* environment variables, in that order. Release assembly fails outright
+// when neither is present: a "release" quietly signed with the debug key could never be
+// updated in place later, so it is worse than no build at all.
+//
+// `-Plumen.unsignedRelease=true` is the one escape hatch — it produces an *unsigned* APK
+// for verifying the R8-shrunk build on an emulator before a keystore exists. It cannot
+// be installed on a phone as-is, which is the point.
+val keystoreProperties: Properties? =
+    rootProject.file("keystore.properties").takeIf { it.isFile }?.let { file ->
+        Properties().apply { file.inputStream().use(::load) }
+    }
+
+fun signingValue(property: String, env: String): String? =
+    keystoreProperties?.getProperty(property)?.takeIf { it.isNotBlank() }
+        ?: System.getenv(env)?.takeIf { it.isNotBlank() }
+
+val releaseStoreFile = signingValue("storeFile", "LUMEN_KEYSTORE_FILE")
+val releaseStorePassword = signingValue("storePassword", "LUMEN_KEYSTORE_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "LUMEN_KEY_ALIAS")
+val releaseKeyPassword = signingValue("keyPassword", "LUMEN_KEY_PASSWORD")
+val releaseSigningConfigured =
+    listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
+        .all { it != null }
+val unsignedReleaseAllowed = providers.gradleProperty("lumen.unsignedRelease")
+    .map { it.toBoolean() }.getOrElse(false)
 
 android {
     namespace = "com.sidharth.lumen"
@@ -21,6 +52,19 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -33,9 +77,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // Signing is wired in M9, and is designed to fail loudly when
-            // keystore.properties is absent rather than silently fall back to the
-            // debug key. See README "Signing".
+            // Null when unconfigured — and then `verifyReleaseSigning` below refuses to
+            // let the build continue, so this never silently produces a debug-keyed APK.
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
@@ -60,6 +104,35 @@ android {
         // MigrationTestHelper reads the exported v1 schema JSON from test assets.
         getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
+}
+
+// Refuses to build a release without signing material, unless explicitly told the APK is
+// for emulator verification only. Registered as a task so the message is the first thing
+// a failed `assembleRelease` prints, not something buried after a four-minute R8 pass.
+val verifyReleaseSigning by tasks.registering {
+    val configured = releaseSigningConfigured
+    val unsignedOk = unsignedReleaseAllowed
+    doFirst {
+        if (!configured && !unsignedOk) {
+            throw GradleException(
+                """
+                |
+                |  Release signing is not configured, so this build stops here.
+                |
+                |  Lumen never signs a release with the debug key. Either:
+                |    1. create keystore.properties at the repo root (see README "Signing"),
+                |    2. or export LUMEN_KEYSTORE_FILE / LUMEN_KEYSTORE_PASSWORD /
+                |       LUMEN_KEY_ALIAS / LUMEN_KEY_PASSWORD,
+                |    3. or, ONLY to test the shrunk build on an emulator, pass
+                |       -Plumen.unsignedRelease=true to get an uninstallable unsigned APK.
+                |
+                """.trimMargin(),
+            )
+        }
+    }
+}
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(verifyReleaseSigning)
 }
 
 ksp {

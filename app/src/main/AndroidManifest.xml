@@ -1,12 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!--
       Lumen declares NO permissions. Book import goes through the Storage Access
       Framework (no storage permission needed), the dictionary ships in the APK
       (no INTERNET needed), and the web-lookup escape hatch is an ACTION_VIEW
       intent handed to the browser (no INTERNET needed). See README "Privacy".
+
+      The two removals below are not Lumen's: Readium's navigator depends on Media3 /
+      ExoPlayer for audiobook playback, and ExoPlayer's own manifest asks for these.
+      Lumen never plays audio, so the code that would use them never runs. Stripping
+      them here keeps the installed permission list at exactly zero — which is the
+      claim the README makes, so it has to be literally true, not true-except-for.
     -->
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.WAKE_LOCK"
+        tools:node="remove" />
 
     <application
         android:name=".LumenApplication"

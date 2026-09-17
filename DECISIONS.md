@@ -325,3 +325,33 @@ phone rather than published, the build will restrict to `arm64-v8a`, cutting the
 to roughly 4–6MB. Recorded here because that ABI restriction is a real constraint: the APK
 will not install on an x86 emulator or a 32-bit device, which is a deliberate trade and
 needs saying in the README.
+
+## 2026-09-17 — Ship EPUB-only; PDF parked on `m8-pdf`
+M8 compiled under both debug and R8 release but had never opened a PDF and had no tests.
+Shipping it would have meant putting unexecuted code on the phone and calling it done.
+Rejected shipping "M8 as-is" and rejected deleting it: it is committed on `m8-pdf`, main
+is back at the verified M7 state, and M9 ships that. PDF becomes its own milestone with
+its own verification when the machine has headroom to run an emulator reliably.
+
+## 2026-09-17 — Release without signing material fails, with one named escape hatch
+Gradle's default when no `signingConfig` is set is to emit `app-release-unsigned.apk` and
+succeed — quiet enough to be mistaken for a shippable artifact. Instead a
+`verifyReleaseSigning` task, wired before `preReleaseBuild`, throws with instructions when
+neither `keystore.properties` nor the `LUMEN_KEYSTORE_*` variables are present. It runs
+first so the failure costs seconds, not a four-minute R8 pass.
+
+The escape hatch `-Plumen.unsignedRelease=true` exists for exactly one purpose: verifying
+the R8-shrunk build on an emulator before the owner has made a keystore. It yields an
+unsigned APK that a phone will refuse to install, which is the safeguard. For the
+emulator it is then signed with the local debug key by hand — never by the build.
+Rejected a silent debug-key fallback (a release you cannot update in place is worse than
+none) and rejected making the escape hatch a default.
+
+## 2026-09-17 — ExoPlayer's permissions stripped from the manifest
+The merged manifest carried `ACCESS_NETWORK_STATE` and `WAKE_LOCK`, neither declared by
+Lumen: Readium's navigator depends on Media3/ExoPlayer for audiobooks, and ExoPlayer's
+manifest asks for them. Lumen never plays audio, so the code paths that use them never
+run. Removed with `tools:node="remove"` so the installed permission list is literally
+empty — the README says "zero permissions", and that has to be checkable on the phone,
+not true-with-footnotes. Verified by inspecting the merged manifest and by running the
+shrunk build; `INTERNET` was never present from any source.

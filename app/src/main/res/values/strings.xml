@@ -5,7 +5,7 @@
     <!-- Library -->
     <string name="library_title">Library</string>
     <string name="library_empty_title">No books yet</string>
-    <string name="library_empty_body">Import an EPUB or PDF to get started. Books are copied into Lumen\'s private storage, so moving the original file won\'t break anything.</string>
+    <string name="library_empty_body">Import an EPUB to get started. Books are copied into Lumen\'s private storage, so moving the original file won\'t break anything.</string>
     <string name="library_import">Import a book</string>
     <string name="library_search">Search title or author</string>
     <string name="library_search_clear">Clear search</string>

@@ -12,8 +12,8 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M5 | Dictionary — WordNet DB, Morphy lemmatizer, sheet, lookup log | ☑ | 2026-08-08 · verified in airplane mode |
 | M6 | Notes database — cross-book list, FTS, export, backup/restore | ☑ | 2026-08-08 · full wipe-and-restore verified on device |
 | M7 | Review mode — flashcard queue, spaced intervals | ☑ | 2026-08-08 · ladder verified across a real day boundary |
-| M8 | PDF — render, page turn, rect highlights, text lookup | ☐ | |
-| M9 | Ship — signed release APK, R8 verified, README | ☐ | |
+| M8 | PDF — render, page turn, rect highlights, text lookup | ⏸ | parked on `m8-pdf` — compiles, never executed, no tests |
+| M9 | Ship — signed release APK, R8 verified, README | ☑ | 2026-09-17 · EPUB-only; R8 build opened a book on the emulator |
 
 ## Environment (this machine, 2026-08-01)
 
@@ -178,9 +178,9 @@ These live in `WordNetDictionaryTest` rather than being a one-off demo, so the b
 enforced. There is no network code in the dictionary path at all and the app still declares
 **zero permissions**, so a regression cannot hide behind a silent online fallback.
 
-**Sizes:** dictionary asset 20.5MB → debug APK 39MB. R8 + resource shrinking in M9 will not
-touch the asset, so the release APK stays about this size. That is the price of "works on a
-plane" and it was the intended trade.
+**Sizes:** dictionary asset 20.5MB → debug APK 39MB. *(Prediction corrected in M9: the
+release APK is 12.4MB, not ~39MB — the SQLite asset compresses hard inside the APK zip. The
+asset is present and intact in the shrunk build; that was checked, not assumed.)*
 
 ## M6 verification — 2026-08-08
 
@@ -265,28 +265,67 @@ source_id)` index, which is what makes re-seeding idempotent. `MigrationTest` no
 still intact, still resolvable by its quote selector, still findable through FTS, and that
 `review_items` arrived empty.
 
+## M9 verification — 2026-09-17
+
+Shipped **EPUB-only**. M8's PDF work compiled but had never opened a PDF and had no tests,
+so it is parked on the `m8-pdf` branch and main was returned to the verified M7 state
+before any of this ran.
+
+| Command | Result |
+|---|---|
+| `./gradlew test` | 120 tests, 0 failures |
+| `./gradlew lint` | 0 errors |
+| `./gradlew :app:assembleRelease` (no keystore) | **fails in 39s** with the signing message — as designed |
+| `./gradlew :app:assembleRelease -Plumen.unsignedRelease=true` | BUILD SUCCESSFUL → `app-release-unsigned.apk`, **12.4 MB** |
+
+**The done-when — "R8/minify config verified by opening a book on a *release* build" —
+done literally.** The unsigned release APK was copied, signed by hand with the local debug
+key *for the emulator only* (the build itself will never do this), installed under the
+real `com.sidharth.lumen` id on a clean slate, and then:
+
+1. Launched → Library drew. Hilt, Compose, Room and DataStore all survived minification.
+2. Imported *The Hitchhiker's Guide to the Galaxy* through the real file picker → title,
+   author and cover parsed. Readium's streamer survived minification.
+3. Opened it → cover page, then five page turns into paginated, justified, sepia prose
+   with italics intact. Readium's navigator and its WebView bridge survived minification.
+4. Same process id start to finish; `logcat` clean of `FATAL`, `ClassNotFound`,
+   `NoSuchMethod` and `NoSuchField` throughout.
+
+Screenshots in `docs/screenshots/m9/`. The debug-key-signed test APK was never committed
+and is not the artifact to install on a phone.
+
+**Permissions, measured rather than asserted.** `dumpsys package` on the installed release
+build lists **zero `android.permission.*` entries**. Two that had been merging in
+transitively — `ACCESS_NETWORK_STATE` and `WAKE_LOCK`, from ExoPlayer via Readium's
+navigator, for audiobooks Lumen never plays — are now stripped in the manifest. `INTERNET`
+was never present from any source. The single remaining entry is AndroidX's app-private
+signature permission, documented in the README.
+
+**Two defects found and fixed during M9:**
+- The empty-library text said "Import an EPUB or PDF". PDF is not shipping. Now "EPUB".
+- My own M5 note predicted a ~39MB release APK. Measured: 12.4MB. Corrected above.
+
+**One honest caveat on the evidence.** The string fix landed after the build that was
+tested. A string resource cannot change what R8 keeps or strips, so the verification
+stands — but the APK the owner builds will differ from the tested one by that one string.
+
+**Still emulator-only.** Every "on device" claim in this file remains "on emulator", and the
+emulator ran at a host load average of 15–21 throughout M9 (install alone took 15
+minutes). Nothing here has been watched on a physical phone. The first install on the
+owner's own handset is the real M9 acceptance, and it is theirs to run.
+
 ## Open questions for the owner
-- **The machine is out of headroom, and it is now costing verification time.** Disk is at
-  ~16GB free (39GB at M0) and free memory ran to roughly 90MB during the last session. The
-  emulator has now wedged three separate times: its package-manager service died in M1,
-  `uiautomator dump` and `screencap` both hung after M7 while adb stayed responsive, and on
-  the next cold boot System UI and then Lumen itself both ANR'd. The Lumen ANR trace points
-  at ordinary flow-collection code that cannot spin on its own, so this reads as host
-  starvation rather than an app defect — but that is an inference, not a proof, and the app
-  has never been watched on hardware that was not thrashing.
-- No physical device has ever been attached to this Mac, so every "on device" claim in this
-  file is really "on emulator". This matters most for M8: PDF rendering is where scrolling
-  feel and memory pressure actually show up, and an emulator on a starved host will not
-  tell the truth about either.
-- ~~M8 needs a dependency decision.~~ **Settled 2026-08-17:** `readium-adapter-pdfium`
-  approved, restricted to `arm64-v8a` (~4–6MB rather than ~10MB). The emulator in use is
-  already `sdk_gphone64_arm64`, so instrumented tests are unaffected — but the APK will no
-  longer install on an x86 emulator or a 32-bit phone, and the README must say so.
-  Likewise settled: a §3-approved library that cannot build without a helper may pull that
-  helper in without stopping, recorded in DECISIONS.md rather than blocked on.
-- The notes screen has a working date-range filter behind it — query and ViewModel are
-  wired — but no date-picker UI. It is unreachable rather than half-built. Say if it is
-  wanted before M9.
-- The emulator database still holds a throwaway `Middlemarch` row (`content_hash=h-review`,
-  `file_path=/x.epub`) seeded by hand for M7. It is deliberately left in place because the
-  review cards reference it; opening it correctly shows "This book's file is missing".
+- **The keystore is yours to make.** README "Signing" has the exact `keytool` command and
+  the `keystore.properties.example` template. Until it exists, `assembleRelease` refuses to
+  build, on purpose. Back the `.jks` up off this laptop — losing it means losing in-place
+  updates.
+- **First real-phone install.** Everything above is emulator evidence on a starved host.
+  Install the signed APK on the phone, import one book, read a chapter, close and reopen.
+  That is the acceptance test no emulator can substitute for.
+- **PDF (M8) is parked, not dead.** `m8-pdf` holds compiling, R8-clean, unverified code.
+  Finishing it needs an emulator that stays alive long enough to open a PDF, plus tests.
+- **The machine.** Disk ~16GB free; the emulator wedged or ANR'd on every cold boot this
+  session and needed 60–90s to settle before it could be touched. Freeing space and closing
+  Spotlight indexing would make any further milestone materially faster.
+- The notes screen has a working date-range filter behind it (query and ViewModel wired)
+  but no date-picker UI. Unreachable rather than half-built. Say if wanted.
