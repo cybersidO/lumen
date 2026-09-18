@@ -40,12 +40,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sidharth.lumen.R
 import com.sidharth.lumen.core.settings.GestureSettings
+import com.sidharth.lumen.core.settings.ReadingSettings
+import kotlin.math.roundToInt
 import com.sidharth.lumen.core.settings.ResolvedTheme
 import com.sidharth.lumen.core.settings.ThemeMode
 import com.sidharth.lumen.ui.theme.colorSchemeFor
@@ -161,6 +164,57 @@ fun SettingsScreen(
                 onChange = { v ->
                     viewModel.updateGestures { it.copy(twoFingerTapThemeEnabled = v) }
                 },
+            )
+
+            SectionHeader(R.string.settings_reading)
+            Text(
+                text = stringResource(R.string.settings_reading_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 4.dp),
+            )
+            GestureToggleRow(
+                label = stringResource(R.string.reading_volume_keys),
+                hint = stringResource(R.string.reading_volume_keys_hint),
+                checked = settings.reading.volumeButtonsTurnPages,
+                onChange = { v -> viewModel.updateReading { it.copy(volumeButtonsTurnPages = v) } },
+            )
+            GestureToggleRow(
+                label = stringResource(R.string.reading_haptics),
+                hint = stringResource(R.string.reading_haptics_hint),
+                checked = settings.reading.hapticsEnabled,
+                onChange = { v -> viewModel.updateReading { it.copy(hapticsEnabled = v) } },
+            )
+            GestureToggleRow(
+                label = stringResource(R.string.reading_keep_screen_on),
+                hint = pluralStringResource(
+                    R.plurals.reading_keep_screen_on_hint,
+                    settings.reading.keepScreenOnMinutes,
+                    settings.reading.keepScreenOnMinutes,
+                ),
+                checked = settings.reading.keepScreenOn,
+                onChange = { v -> viewModel.updateReading { it.copy(keepScreenOn = v) } },
+            )
+            if (settings.reading.keepScreenOn) {
+                GestureSliderRow(
+                    label = stringResource(R.string.reading_keep_screen_on_minutes),
+                    value = settings.reading.keepScreenOnMinutes.toFloat(),
+                    range = 0f..ReadingSettings.MAX_KEEP_SCREEN_ON_MINUTES.toFloat(),
+                    onChange = { v ->
+                        viewModel.updateReading { it.copy(keepScreenOnMinutes = v.roundToInt()) }
+                    },
+                )
+            }
+            GestureToggleRow(
+                label = stringResource(R.string.reading_lock_orientation),
+                checked = settings.reading.lockOrientation,
+                onChange = { v -> viewModel.updateReading { it.copy(lockOrientation = v) } },
+            )
+            GestureToggleRow(
+                label = stringResource(R.string.reading_chapter_time),
+                hint = stringResource(R.string.reading_chapter_time_hint),
+                checked = settings.reading.showChapterTimeLeft,
+                onChange = { v -> viewModel.updateReading { it.copy(showChapterTimeLeft = v) } },
             )
 
             Spacer(Modifier.height(32.dp))

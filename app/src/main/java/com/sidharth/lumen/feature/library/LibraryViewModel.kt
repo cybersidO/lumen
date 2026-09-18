@@ -4,6 +4,9 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sidharth.lumen.core.books.BookImporter
+import com.sidharth.lumen.core.books.FolderScanner
+import com.sidharth.lumen.core.books.FoundBook
+import kotlinx.coroutines.Job
 import com.sidharth.lumen.core.books.BookStorage
 import com.sidharth.lumen.core.books.ImportProgress
 import com.sidharth.lumen.core.books.ImportResult
@@ -33,11 +36,27 @@ sealed interface ImportUiState {
     data class Running(val progress: ImportProgress) : ImportUiState
 }
 
+/** The folder-scan flow (M10): pick a folder → scanning → a list to tick → importing. */
+sealed interface ScanUiState {
+    data object Idle : ScanUiState
+    data class Scanning(val foldersSeen: Int) : ScanUiState
+    data class Found(val books: List<FoundBook>, val selected: Set<Uri>) : ScanUiState
+    data class Importing(val done: Int, val total: Int, val currentName: String) : ScanUiState
+    data class Finished(val imported: Int, val alreadyPresent: Int, val failed: Int) : ScanUiState
+}
+
 /**
  * One-shot snackbar messages. Modelled as data rather than formatted strings so the
  * ViewModel never touches Context or resources, and the screen owns the wording.
  */
 sealed interface LibraryMessage {
+    data class BatchImported(
+        override val id: Long,
+        val imported: Int,
+        val alreadyPresent: Int,
+        val failed: Int,
+    ) : LibraryMessage
+
     val id: Long
 
     data class Imported(override val id: Long, val title: String) : LibraryMessage
@@ -55,8 +74,13 @@ sealed interface LibraryMessage {
 class LibraryViewModel @Inject constructor(
     private val repository: LibraryRepository,
     private val importer: BookImporter,
+    private val scanner: FolderScanner,
     storage: BookStorage,
 ) : ViewModel() {
+
+    private val _scanState = MutableStateFlow<ScanUiState>(ScanUiState.Idle)
+    val scanState: StateFlow<ScanUiState> = _scanState
+    private var scanJob: Job? = null
 
     private val query = MutableStateFlow("")
     private val sort = MutableStateFlow(LibrarySort.RECENT)
@@ -93,22 +117,90 @@ class LibraryViewModel @Inject constructor(
 
     fun setSort(value: LibrarySort) { sort.value = value }
 
-    fun import(uri: Uri) {
-        if (_importState.value is ImportUiState.Running) return
+    fun import(uri: Uri) = import(listOf(uri))
+
+    /**
+     * Imports one or many files picked in the system picker (M10 made the picker
+     * multi-select). Sequential on purpose: two imports hashing at once would just fight
+     * over the disk, and the progress bar has one thing to show.
+     */
+    fun import(uris: List<Uri>) {
+        if (uris.isEmpty() || _importState.value is ImportUiState.Running) return
         viewModelScope.launch {
-            _importState.value = ImportUiState.Running(ImportProgress.Copying(0, null))
-            val result = importer.import(uri) { progress ->
-                _importState.value = ImportUiState.Running(progress)
+            var imported = 0
+            var present = 0
+            var failed = 0
+            var lastTitle: String? = null
+            var lastFailure: String? = null
+            for (uri in uris) {
+                _importState.value = ImportUiState.Running(ImportProgress.Copying(0, null))
+                when (val result = importer.import(uri) { progress ->
+                    _importState.value = ImportUiState.Running(progress)
+                }) {
+                    is ImportResult.Imported -> { imported++; lastTitle = result.title }
+                    is ImportResult.AlreadyPresent -> { present++; lastTitle = result.title }
+                    is ImportResult.Failed -> { failed++; lastFailure = result.message }
+                }
             }
             _importState.value = ImportUiState.Idle
             postMessage { id ->
-                when (result) {
-                    is ImportResult.Imported -> LibraryMessage.Imported(id, result.title)
-                    is ImportResult.AlreadyPresent -> LibraryMessage.AlreadyPresent(id, result.title)
-                    is ImportResult.Failed -> LibraryMessage.ImportFailed(id, result.message)
+                when {
+                    uris.size == 1 && imported == 1 -> LibraryMessage.Imported(id, lastTitle.orEmpty())
+                    uris.size == 1 && present == 1 -> LibraryMessage.AlreadyPresent(id, lastTitle.orEmpty())
+                    uris.size == 1 -> LibraryMessage.ImportFailed(id, lastFailure ?: "Import failed.")
+                    else -> LibraryMessage.BatchImported(id, imported, present, failed)
                 }
             }
         }
+    }
+
+    // --- folder scan (M10) ---------------------------------------------------------------
+
+    fun scanFolder(treeUri: Uri) {
+        scanJob?.cancel()
+        scanJob = viewModelScope.launch {
+            _scanState.value = ScanUiState.Scanning(0)
+            val books = runCatching {
+                scanner.scan(treeUri) { folders -> _scanState.value = ScanUiState.Scanning(folders) }
+            }.getOrElse { emptyList() }
+            _scanState.value = ScanUiState.Found(books, books.map { it.uri }.toSet())
+        }
+    }
+
+    fun toggleFound(uri: Uri) {
+        val state = _scanState.value as? ScanUiState.Found ?: return
+        val selected = if (uri in state.selected) state.selected - uri else state.selected + uri
+        _scanState.value = state.copy(selected = selected)
+    }
+
+    fun selectAllFound(select: Boolean) {
+        val state = _scanState.value as? ScanUiState.Found ?: return
+        _scanState.value = state.copy(selected = if (select) state.books.map { it.uri }.toSet() else emptySet())
+    }
+
+    fun importFound() {
+        val state = _scanState.value as? ScanUiState.Found ?: return
+        val chosen = state.books.filter { it.uri in state.selected }
+        if (chosen.isEmpty()) return
+        scanJob = viewModelScope.launch {
+            var imported = 0
+            var present = 0
+            var failed = 0
+            chosen.forEachIndexed { index, book ->
+                _scanState.value = ScanUiState.Importing(index, chosen.size, book.displayName)
+                when (importer.import(book.uri)) {
+                    is ImportResult.Imported -> imported++
+                    is ImportResult.AlreadyPresent -> present++
+                    is ImportResult.Failed -> failed++
+                }
+            }
+            _scanState.value = ScanUiState.Finished(imported, present, failed)
+        }
+    }
+
+    fun dismissScan() {
+        scanJob?.cancel()
+        _scanState.value = ScanUiState.Idle
     }
 
     /** Opens the "what about the highlights?" prompt; nothing is deleted until confirmed. */

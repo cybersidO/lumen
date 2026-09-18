@@ -18,6 +18,7 @@ import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.epub.EpubPreferences
 import com.sidharth.lumen.core.database.HighlightEntity
+import com.sidharth.lumen.core.settings.HighlightStyle
 import com.sidharth.lumen.feature.highlight.HighlightColor
 import com.sidharth.lumen.feature.reader.gesture.ReaderGestureLayout
 import com.sidharth.lumen.feature.reader.gesture.TapAction
@@ -153,21 +154,25 @@ fun HighlightDecorations(
     navigator: EpubNavigatorFragment?,
     highlights: List<HighlightEntity>,
     isDark: Boolean,
+    style: HighlightStyle,
     onHighlightTapped: (Long) -> Unit,
 ) {
-    LaunchedEffect(navigator, highlights, isDark) {
+    LaunchedEffect(navigator, highlights, isDark, style) {
         val decorable = navigator as? DecorableNavigator ?: return@LaunchedEffect
         val decorations = highlights.mapNotNull { entity ->
             val locator = entity.locatorJson?.let { json ->
                 runCatching { Locator.fromJSON(JSONObject(json)) }.getOrNull()
             } ?: return@mapNotNull null
+            val tint = HighlightColor.fromId(entity.colorId).tintFor(isDark)
             Decoration(
                 id = "hl-${entity.id}",
                 locator = locator,
-                style = Decoration.Style.Highlight(
-                    tint = HighlightColor.fromId(entity.colorId).tintFor(isDark),
-                    isActive = false,
-                ),
+                // Same colour, two renderings (M10). Both are Readium-native styles, so
+                // the rows are untouched and switching is instant.
+                style = when (style) {
+                    HighlightStyle.FILL -> Decoration.Style.Highlight(tint = tint, isActive = false)
+                    HighlightStyle.UNDERLINE -> Decoration.Style.Underline(tint = tint, isActive = false)
+                },
             )
         }
         decorable.applyDecorations(decorations, group = DECORATION_GROUP)

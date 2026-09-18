@@ -14,6 +14,8 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M7 | Review mode — flashcard queue, spaced intervals | ☑ | 2026-08-08 · ladder verified across a real day boundary |
 | M8 | PDF — render, page turn, rect highlights, text lookup | ⏸ | parked on `m8-pdf` — compiles, never executed, no tests |
 | M9 | Ship — signed release APK, R8 verified, README | ☑ | 2026-09-17 · EPUB-only; R8 build opened a book on the emulator |
+| M10 | Reading comforts, folder scan, stats, auto-scroll → 1.1.0 | ☑ | 2026-09-18 · every item verified by measurement, not by eye |
+| M11 | Read-aloud — Readium TTS + on-device Piper voice → 1.2.0 | ☐ | dependency (sherpa-onnx + voice) to be asked about first |
 
 ## Environment (this machine, 2026-08-01)
 
@@ -314,18 +316,62 @@ emulator ran at a host load average of 15–21 throughout M9 (install alone took
 minutes). Nothing here has been watched on a physical phone. The first install on the
 owner's own handset is the real M9 acceptance, and it is theirs to run.
 
+## M10 verification — 2026-09-18
+
+| Command | Result |
+|---|---|
+| `./gradlew test` | 133 tests, 0 failures (13 new) |
+| `./gradlew connectedAndroidTest` | 54 tests, 0 failures (8 new) |
+| `./gradlew lint` | 0 errors; 1 warning (`"%d imported"` — grammatical either way, left) |
+
+Room schema v5 → v6 (`reading_sessions`), migration added, and `MigrationTest` now runs
+the full v1→v6 chain. Every item below was checked on the emulator by something that
+could fail, not by looking:
+
+| Item | How it was proved |
+|---|---|
+| Underline highlights | Pixel scan of the page: one **5px** yellow band under the word, where a fill would be ~50px |
+| Page flow toggle | Sheet switched to scroll; chrome then offered **Auto-scroll**, which it never does in paged mode |
+| Auto-scroll | Two frames 8s apart: page content shifted **~210px** up (1474/1600 rows changed); it crossed the cover→Chapter 1 boundary on its own; a page tap paused it |
+| Volume buttons | Four `KEYCODE_VOLUME_DOWN` → progress 0%→4%; `dumpsys audio` media volume **2 before, 2 after** (press consumed, no panel) |
+| Chapter time | After four real turns ~5s apart the chrome showed **"~4 min left in chapter"**; nothing shown before the pace settled |
+| Keep screen on | `dumpsys window`: `fl=KEEP_SCREEN_ON` on Lumen's window in the reader, **absent** back in the library |
+| Orientation lock | `dumpsys activity`: `requestedOrientation=SCREEN_ORIENTATION_LOCKED` in the reader, `UNSPECIFIED` after leaving |
+| Warm tint | Compose UI test samples the rendered pixel: red > blue by >40, blue still >140 (amber, readable); off → pure white |
+| Reading stats | Three sessions in the table (1063s/10 pages, 20s, 31s) → screen shows **18 min, 10 pages, 33 pages/hour**, today's bar lit, 1-day streak — arithmetic reconciles exactly |
+| Folder scan | Picked `Download/Books`; **"Found 3 books"** including one in a subfolder, labelled with its path; imported all three; no duplicate hashes |
+| Multi-select picker | `OpenMultipleDocuments`; batch snackbar wording covered by string resources |
+| Haptics | Calls are wired and gated by the setting; **not verifiable on an emulator** (no motor). Owner judges strength on the phone |
+
+Screenshots in `docs/screenshots/m10/`.
+
+**Bugs found and fixed during M10:**
+- **Day bucketing was 5½ hours off** on an Asia/Kolkata device — SQLite read a local-midnight
+  string back as UTC. Caught by `ReadingSessionTest` on the emulator, which happens to be
+  set to the owner's zone. Fixed with the `'utc'` modifier.
+- **The Aa sheet's last slider sat in the gesture-navigation strip**, where a drag is read
+  as a system swipe and dismisses the sheet. Fixed with bottom padding.
+
+**Platform limits found:**
+- Android will not grant folder access to `Download` itself or the storage root; a
+  subfolder such as `Download/Books` works. Documented in the scan sheet's empty state and
+  the README.
+- The tree picker opens on "Recent" for a fresh install; the user navigates from there.
+
+**Honest limits of the emulator evidence:** uiautomator lagged badly throughout (dump and
+screenshot frequently disagreed), so several checks above are from `dumpsys`, the
+database, or pixel maths rather than from driving the UI. Nothing in this milestone has
+been felt on a phone; haptics in particular need the owner's thumb.
+
 ## Open questions for the owner
-- **The keystore is yours to make.** README "Signing" has the exact `keytool` command and
-  the `keystore.properties.example` template. Until it exists, `assembleRelease` refuses to
-  build, on purpose. Back the `.jks` up off this laptop — losing it means losing in-place
-  updates.
-- **First real-phone install.** Everything above is emulator evidence on a starved host.
-  Install the signed APK on the phone, import one book, read a chapter, close and reopen.
-  That is the acceptance test no emulator can substitute for.
-- **PDF (M8) is parked, not dead.** `m8-pdf` holds compiling, R8-clean, unverified code.
-  Finishing it needs an emulator that stays alive long enough to open a PDF, plus tests.
-- **The machine.** Disk ~16GB free; the emulator wedged or ANR'd on every cold boot this
-  session and needed 60–90s to settle before it could be touched. Freeing space and closing
-  Spotlight indexing would make any further milestone materially faster.
-- The notes screen has a working date-range filter behind it (query and ViewModel wired)
-  but no date-picker UI. Unreachable rather than half-built. Say if wanted.
+- **Try 1.1.0 on the phone** and report on: haptic strength (light tick on select, firmer on
+  save), whether volume-down-is-next feels right or should be flipped, and whether the
+  default auto-scroll speed is too slow. All three are one-line changes.
+- **Books live where?** The folder scan needs a subfolder — Android refuses `Download`
+  itself. If yours are loose in `Download`, moving them into `Download/Books` once makes
+  the scan and rescan work.
+- **M11 (read-aloud)** needs a yes on two new dependencies before it starts: `sherpa-onnx`
+  (Apache-2.0, ~15MB arm64 runtime) and one Piper voice (~60MB, licence to be confirmed).
+  The APK would grow from ~13MB to ~90MB.
+- PDF (`m8-pdf`) remains parked; the user chose to skip it.
+- The notes screen's date-range filter still has no picker UI.

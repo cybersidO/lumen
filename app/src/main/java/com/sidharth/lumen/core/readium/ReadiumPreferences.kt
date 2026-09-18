@@ -1,5 +1,6 @@
 package com.sidharth.lumen.core.readium
 
+import com.sidharth.lumen.core.settings.PageFlow
 import com.sidharth.lumen.core.settings.ReaderFont
 import com.sidharth.lumen.core.settings.ReaderTextAlign
 import com.sidharth.lumen.core.settings.ReaderTypography
@@ -20,6 +21,7 @@ import org.readium.r2.navigator.preferences.Theme as ReadiumTheme
 fun readiumPreferences(
     typography: ReaderTypography,
     theme: ResolvedTheme,
+    pageFlow: PageFlow = PageFlow.PAGED,
 ): EpubPreferences = EpubPreferences(
     fontFamily = typography.font.toReadium(),
     fontSize = typography.fontSizeMultiplier,
@@ -38,8 +40,9 @@ fun readiumPreferences(
     // Publisher styles off, otherwise a book with its own CSS ignores the reader's
     // font size and line height — which is exactly what the user changed them for.
     publisherStyles = false,
-    // Paginated, not scrolled (§2.2).
-    scroll = false,
+    // §2.2 asked for pagination; M10 made it a choice. Scroll mode is Readium's own
+    // continuous layout, so both are first-class rather than one being emulated.
+    scroll = pageFlow.isScroll,
 )
 
 /** Kept in step with LumenColors; a book page is a surface like any other. */

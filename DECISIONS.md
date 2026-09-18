@@ -355,3 +355,74 @@ run. Removed with `tools:node="remove"` so the installed permission list is lite
 empty — the README says "zero permissions", and that has to be checkable on the phone,
 not true-with-footnotes. Verified by inspecting the merged manifest and by running the
 shrunk build; `INTERNET` was never present from any source.
+
+## 2026-09-18 — Read-aloud will be on-device Piper, not a cloud voice
+The owner asked about ElevenLabs. It was rejected on the owner's own rules rather than on
+taste: a cloud voice needs the `INTERNET` permission (ending the verified "zero
+permissions" claim), an API key (an account), and every sentence of every book sent to a
+third party (the data leaves the device). Its free tier is also ~10k characters a month —
+five or six pages — so it could not read one book without a paid plan.
+
+Chosen for M11: Readium's TTS navigator driving a custom engine backed by sherpa-onnx with
+a bundled Piper voice. Fully offline, no account, nothing leaves the phone; the cost is the
+APK growing from ~12MB to ~90MB. Kokoro (better quality, 80–300MB) was offered and
+declined for size; "phone's own voices only" was declined for quality. sherpa-onnx and the
+voice are new dependencies and will be asked about with license and size before they go in.
+
+## 2026-09-18 — M10 ships first as 1.1.0, TTS separately as 1.2.0
+TTS is the largest piece and the only one carrying a dependency decision, so isolating it
+means the ten smaller improvements ship as soon as they are verified and cannot be held up
+by the voice question.
+
+## 2026-09-18 — Reading comforts are settings, not modes
+Underline vs fill, page flow, warm tint, haptics, volume paging, keep-screen-on,
+orientation lock and the chapter estimate all live in one `ReadingSettings` group in
+DataStore, next to typography and gestures. Rejected per-book settings: these describe the
+reader's eyes and thumbs, not the book. Page flow and the two page-look controls sit in
+the reader's Aa sheet (reached without leaving the page); the behavioural switches sit in
+Settings.
+
+## 2026-09-18 — Volume keys route through the Activity, claimed only while reading
+The Activity sees every hardware key; the reader is a composable that comes and goes. So a
+singleton dispatcher holds at most one handler, registered while the reader is resumed and
+dropped on pause or dispose. Anywhere else, and on the lock screen, volume stays volume.
+Both DOWN and UP are consumed for a claimed press so the volume panel never flashes over
+the page. Verified: four presses turned four pages and `dumpsys audio` showed the media
+volume unchanged.
+
+## 2026-09-18 — "Minutes left in chapter" is measured, never guessed
+An exponential moving average over real page turns, ignoring turns under 4s (skimming)
+and over 6min (a break). The figure is withheld until three genuine turns have been seen,
+so the chrome never shows the default guess dressed up as a measurement. Chapter length
+comes from Readium's synthetic positions per resource; the estimate is pages left times
+the measured pace.
+
+## 2026-09-18 — Auto-scroll drives the WebView through Readium's JS bridge
+Readium exposes no scroll API, but `EpubNavigatorFragment.evaluateJavascript` is public.
+In scroll mode each resource is one document, so a 50ms tick of `scrollBy` moves it, and
+the same call reports whether the bottom has been reached — at which point `goForward()`
+loads the next resource and the loop continues. A tap on the page pauses rather than
+turning a page, because a tap while text is moving means "wait". Rejected a native
+`View.scrollBy` on the WebView: it is not reachable without reflection into the fragment.
+
+## 2026-09-18 — Reading sessions are one row, updated in place
+A row is inserted when the book is on screen and `UPDATE`d on every page turn, so a
+process kill loses only the seconds since the last turn. Sessions under 20s are deleted on
+stop — opening a book by mistake is not reading. Day bucketing is done in SQL against the
+device's local zone; the first version got the return trip wrong and put every bucket
+5½ hours out, which the Asia/Kolkata emulator caught (see `ReadingSessionDao`).
+
+## 2026-09-18 — Folder scan instead of "scan the whole phone"
+A whole-device search needs Android's "All files access", the most tightly gated
+permission there is, and would end the zero-permission claim. Instead the user grants one
+folder through the system picker and Lumen walks it with `DocumentsContract` child
+queries (one round-trip per folder, not per file). Two platform limits found and
+documented: Android refuses to grant `Download` itself or the storage root — a subfolder
+such as `Download/Books` works — and the picker starts on "Recent" for a fresh install.
+The ordinary picker is now multi-select as well.
+
+## 2026-09-18 — The Aa sheet keeps its last control out of the gesture strip
+With M10's controls the sheet fills the screen, and the warm-tint slider landed inside the
+system's bottom gesture zone, where a drag is read as a swipe and dismisses the sheet.
+Fixed with extra bottom padding so the content always scrolls clear of it. Found on the
+emulator by failing to drag it; a thumb would have failed the same way.

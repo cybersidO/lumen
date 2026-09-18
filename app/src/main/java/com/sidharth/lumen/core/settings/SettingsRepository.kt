@@ -31,7 +31,38 @@ class SettingsRepository @Inject constructor(
             ),
             gestures = prefs.readGestures(),
             brightness = prefs.readBrightness(),
+            reading = prefs.readReading(),
         )
+    }
+
+    private fun Preferences.readReading() = ReadingSettings(
+        highlightStyle = HighlightStyle.fromStorageKey(this[Keys.HighlightStyle]),
+        hapticsEnabled = this[Keys.Haptics] ?: true,
+        pageFlow = PageFlow.fromStorageKey(this[Keys.PageFlow]),
+        volumeButtonsTurnPages = this[Keys.VolumeKeys] ?: true,
+        keepScreenOn = this[Keys.KeepScreenOn] ?: false,
+        keepScreenOnMinutes = this[Keys.KeepScreenOnMinutes]
+            ?: ReadingSettings.DEFAULT_KEEP_SCREEN_ON_MINUTES,
+        warmTint = this[Keys.WarmTint] ?: 0f,
+        lockOrientation = this[Keys.LockOrientation] ?: false,
+        showChapterTimeLeft = this[Keys.ChapterTimeLeft] ?: true,
+        autoScrollSpeed = this[Keys.AutoScrollSpeed] ?: ReadingSettings.DEFAULT_AUTO_SCROLL_SPEED,
+    ).sanitised()
+
+    suspend fun updateReading(transform: (ReadingSettings) -> ReadingSettings) {
+        dataStore.edit { prefs ->
+            val updated = transform(prefs.readReading()).sanitised()
+            prefs[Keys.HighlightStyle] = updated.highlightStyle.storageKey
+            prefs[Keys.Haptics] = updated.hapticsEnabled
+            prefs[Keys.PageFlow] = updated.pageFlow.storageKey
+            prefs[Keys.VolumeKeys] = updated.volumeButtonsTurnPages
+            prefs[Keys.KeepScreenOn] = updated.keepScreenOn
+            prefs[Keys.KeepScreenOnMinutes] = updated.keepScreenOnMinutes
+            prefs[Keys.WarmTint] = updated.warmTint
+            prefs[Keys.LockOrientation] = updated.lockOrientation
+            prefs[Keys.ChapterTimeLeft] = updated.showChapterTimeLeft
+            prefs[Keys.AutoScrollSpeed] = updated.autoScrollSpeed
+        }
     }
 
     private fun Preferences.readGestures() = GestureSettings(
@@ -113,5 +144,15 @@ class SettingsRepository @Inject constructor(
         val TwoFingerTheme = booleanPreferencesKey("gesture_two_finger_theme")
         val Brightness = floatPreferencesKey("reader_brightness")
         val ExtraDim = floatPreferencesKey("reader_extra_dim")
+        val HighlightStyle = stringPreferencesKey("reading_highlight_style")
+        val Haptics = booleanPreferencesKey("reading_haptics")
+        val PageFlow = stringPreferencesKey("reading_page_flow")
+        val VolumeKeys = booleanPreferencesKey("reading_volume_keys")
+        val KeepScreenOn = booleanPreferencesKey("reading_keep_screen_on")
+        val KeepScreenOnMinutes = intPreferencesKey("reading_keep_screen_on_minutes")
+        val WarmTint = floatPreferencesKey("reading_warm_tint")
+        val LockOrientation = booleanPreferencesKey("reading_lock_orientation")
+        val ChapterTimeLeft = booleanPreferencesKey("reading_chapter_time_left")
+        val AutoScrollSpeed = floatPreferencesKey("reading_auto_scroll_speed")
     }
 }

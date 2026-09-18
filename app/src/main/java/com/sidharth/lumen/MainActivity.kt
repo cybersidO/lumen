@@ -1,6 +1,7 @@
 package com.sidharth.lumen
 
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -9,9 +10,11 @@ import androidx.compose.runtime.remember
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sidharth.lumen.feature.reader.input.VolumeKeyDispatcher
 import com.sidharth.lumen.ui.LumenApp
 import com.sidharth.lumen.ui.theme.LumenTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * A [FragmentActivity] rather than a plain ComponentActivity: Readium's EPUB renderer is a
@@ -20,6 +23,16 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
+
+    @Inject lateinit var volumeKeys: VolumeKeyDispatcher
+
+    // Volume keys turn pages while a book is open (M10). The dispatcher only claims a
+    // press when a reader has registered for it, so everywhere else volume stays volume.
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean =
+        volumeKeys.onKeyDown(keyCode) || super.onKeyDown(keyCode, event)
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean =
+        volumeKeys.onKeyUp(keyCode) || super.onKeyUp(keyCode, event)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Drop any saved fragment state before the FragmentManager can act on it.
@@ -52,7 +65,7 @@ class MainActivity : FragmentActivity() {
             }
 
             LumenTheme(themeMode = loaded.themeMode) {
-                LumenApp(resolvedTheme = resolved)
+                LumenApp(resolvedTheme = resolved, volumeKeys = volumeKeys)
             }
         }
     }

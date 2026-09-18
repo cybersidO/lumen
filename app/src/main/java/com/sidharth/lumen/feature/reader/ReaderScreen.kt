@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.FormatSize
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -74,17 +75,24 @@ import com.sidharth.lumen.feature.reader.gesture.GestureIndicator
 import com.sidharth.lumen.feature.reader.gesture.IndicatorSide
 import com.sidharth.lumen.feature.reader.gesture.ReaderGestureLayout
 import com.sidharth.lumen.feature.reader.gesture.TapAction
+import com.sidharth.lumen.feature.reader.input.Haptics
+import com.sidharth.lumen.feature.reader.input.VolumeKeyAction
+import com.sidharth.lumen.feature.reader.input.VolumeKeyDispatcher
+import androidx.compose.ui.platform.LocalView
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.shared.publication.ReadingProgression
 
 const val ReaderTocButtonTag = "reader_toc_button"
 const val ReaderTypographyButtonTag = "reader_typography_button"
 const val ReaderSurfaceTag = "reader_surface"
+const val ReaderAutoScrollButtonTag = "reader_auto_scroll_button"
+const val ReaderChapterTimeTag = "reader_chapter_time"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReaderScreen(
     resolvedTheme: ResolvedTheme,
+    volumeKeys: VolumeKeyDispatcher,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ReaderViewModel = hiltViewModel(),
@@ -107,8 +115,15 @@ fun ReaderScreen(
             is ReaderUiState.Failed -> ReaderError(state.message, onBack)
 
             is ReaderUiState.Ready -> {
-                val preferences = remember(settings.typography, resolvedTheme) {
-                    readiumPreferences(settings.typography, resolvedTheme)
+                val reading = settings.reading
+                val preferences = remember(settings.typography, resolvedTheme, reading.pageFlow) {
+                    readiumPreferences(settings.typography, resolvedTheme, reading.pageFlow)
+                }
+                val hostView = LocalView.current
+                var autoScroll by remember { mutableStateOf(AutoScrollState()) }
+                // Leaving scroll mode ends auto-scroll; it has nothing to drive in pages.
+                LaunchedEffect(reading.pageFlow) {
+                    if (!reading.pageFlow.isScroll) autoScroll = AutoScrollState()
                 }
 
                 val activity = LocalActivity.current
@@ -134,6 +149,7 @@ fun ReaderScreen(
                     object : ActionMode.Callback {
                         override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
                             menu.clear()
+                            Haptics.light(hostView, settings.reading.hapticsEnabled)
                             scope.launch {
                                 val selection =
                                     navigatorHolder.value?.currentSelection()?.locator
@@ -173,7 +189,36 @@ fun ReaderScreen(
                     navigator = navigator,
                     highlights = highlights,
                     isDark = resolvedTheme.isDark,
+                    style = reading.highlightStyle,
                     onHighlightTapped = viewModel::openHighlightEditor,
+                )
+
+                // --- M10 comforts ------------------------------------------------------
+                ReaderVisibility(
+                    onVisible = viewModel::onReaderVisible,
+                    onHidden = viewModel::onReaderHidden,
+                )
+                VolumeKeyPaging(
+                    dispatcher = volumeKeys,
+                    enabled = reading.volumeButtonsTurnPages,
+                    onAction = { action ->
+                        when (action) {
+                            VolumeKeyAction.NEXT_PAGE -> navigator?.goForward(animated = true)
+                            VolumeKeyAction.PREVIOUS_PAGE -> navigator?.goBackward(animated = true)
+                        } ?: false
+                    },
+                )
+                KeepScreenOn(
+                    activity = activity,
+                    enabled = reading.keepScreenOn,
+                    minutes = reading.keepScreenOnMinutes,
+                    interactionKey = chrome.progressFraction,
+                )
+                LockOrientation(activity = activity, locked = reading.lockOrientation)
+                AutoScrollDriver(
+                    navigator = navigator,
+                    state = autoScroll,
+                    speed = reading.autoScrollSpeed,
                 )
 
                 // The gesture layout is a plain View; its callbacks are re-pointed at the
@@ -214,6 +259,12 @@ fun ReaderScreen(
                         )
                     },
                     onAction = { action ->
+                        // A tap while auto-scrolling is a request to stop and look, not a
+                        // page turn — the bar stays up so it can be resumed.
+                        if (autoScroll.active && !autoScroll.paused) {
+                            autoScroll = autoScroll.copy(paused = true)
+                            return@ReaderTapListener
+                        }
                         when (action) {
                             TapAction.NEXT_PAGE -> navigator?.goForward(animated = true)
                             TapAction.PREVIOUS_PAGE -> navigator?.goBackward(animated = true)
@@ -228,6 +279,7 @@ fun ReaderScreen(
                 val effectiveBrightness = liveBrightness ?: settings.brightness
                 ApplyWindowBrightness(activity = activity, brightness = effectiveBrightness)
                 DimOverlay(alpha = effectiveBrightness.extraDim)
+                WarmTintOverlay(strength = reading.warmTint)
 
                 indicator?.let { ind ->
                     GestureIndicator(
@@ -250,10 +302,30 @@ fun ReaderScreen(
                     visible = chrome.visible,
                     title = chrome.chapterTitle ?: state.title,
                     progressFraction = chrome.progressFraction,
+                    chapterMinutesLeft = chrome.chapterMinutesLeft
+                        .takeIf { reading.showChapterTimeLeft },
                     onBack = onBack,
                     onOpenToc = { showToc = true },
                     onOpenTypography = { showTypography = true },
+                    onStartAutoScroll = if (reading.pageFlow.isScroll && !autoScroll.active) {
+                        {
+                            autoScroll = AutoScrollState(active = true)
+                            viewModel.hideChrome()
+                        }
+                    } else {
+                        null
+                    },
                 )
+
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                    AutoScrollBar(
+                        state = autoScroll,
+                        speed = reading.autoScrollSpeed,
+                        onTogglePause = { autoScroll = autoScroll.copy(paused = !autoScroll.paused) },
+                        onSpeedChange = { v -> viewModel.updateReading { it.copy(autoScrollSpeed = v) } },
+                        onStop = { autoScroll = AutoScrollState() },
+                    )
+                }
 
                 val clipboard = LocalClipboardManager.current
                 val context = LocalContext.current
@@ -264,10 +336,12 @@ fun ReaderScreen(
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                         SelectionToolbar(
                             onColor = { color ->
+                                Haptics.firm(hostView, reading.hapticsEnabled)
                                 viewModel.createHighlight(color)
                                 navigator?.clearSelection()
                             },
                             onNote = {
+                                Haptics.firm(hostView, reading.hapticsEnabled)
                                 viewModel.createHighlight(HighlightColor.YELLOW, thenEdit = true)
                                 navigator?.clearSelection()
                             },
@@ -397,7 +471,9 @@ fun ReaderScreen(
         ) {
             TypographySheet(
                 typography = settings.typography,
+                reading = settings.reading,
                 onChange = { updated -> viewModel.updateTypography { updated } },
+                onReadingChange = { updated -> viewModel.updateReading { updated } },
             )
         }
     }
@@ -409,9 +485,12 @@ private fun ReaderChrome(
     visible: Boolean,
     title: String,
     progressFraction: Float,
+    chapterMinutesLeft: Int?,
     onBack: () -> Unit,
     onOpenToc: () -> Unit,
     onOpenTypography: () -> Unit,
+    /** Null when auto-scroll is unavailable (paged mode) or already running. */
+    onStartAutoScroll: (() -> Unit)?,
 ) {
     Box(Modifier.fillMaxSize()) {
         AnimatedVisibility(
@@ -433,6 +512,17 @@ private fun ReaderChrome(
                     }
                 },
                 actions = {
+                    if (onStartAutoScroll != null) {
+                        IconButton(
+                            onClick = onStartAutoScroll,
+                            modifier = Modifier.testTag(ReaderAutoScrollButtonTag),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.PlayArrow,
+                                contentDescription = stringResource(R.string.auto_scroll_start),
+                            )
+                        }
+                    }
                     IconButton(
                         onClick = onOpenToc,
                         modifier = Modifier.testTag(ReaderTocButtonTag),
@@ -476,15 +566,32 @@ private fun ReaderChrome(
                     progress = { progressFraction },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Text(
-                    text = stringResource(
-                        R.string.reader_progress,
-                        (progressFraction * 100).toInt().coerceIn(0, 100),
-                    ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = stringResource(
+                            R.string.reader_progress,
+                            (progressFraction * 100).toInt().coerceIn(0, 100),
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    // Only once the pace is measured — never the default guess (M10).
+                    if (chapterMinutesLeft != null) {
+                        Text(
+                            text = if (chapterMinutesLeft <= 0) {
+                                stringResource(R.string.reader_chapter_ending)
+                            } else {
+                                stringResource(R.string.reader_chapter_time_left, chapterMinutesLeft)
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag(ReaderChapterTimeTag),
+                        )
+                    }
+                }
             }
         }
     }

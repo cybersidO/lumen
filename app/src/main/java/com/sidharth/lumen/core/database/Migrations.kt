@@ -231,3 +231,31 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         db.execSQL("CREATE INDEX index_review_items_due_at ON review_items(due_at)")
     }
 }
+
+/**
+ * v5 → v6 (M10): reading sessions for the stats screen. Purely additive; nothing that
+ * holds highlights is touched. Column order and types mirror Room's exported `6.json`
+ * so `MigrationTestHelper` validates the result against the entity.
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE reading_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                book_content_hash TEXT NOT NULL,
+                started_at INTEGER NOT NULL,
+                ended_at INTEGER NOT NULL,
+                start_progress REAL NOT NULL,
+                end_progress REAL NOT NULL,
+                pages_turned INTEGER NOT NULL
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX index_reading_sessions_book_content_hash " +
+                "ON reading_sessions(book_content_hash)",
+        )
+        db.execSQL("CREATE INDEX index_reading_sessions_started_at ON reading_sessions(started_at)")
+    }
+}

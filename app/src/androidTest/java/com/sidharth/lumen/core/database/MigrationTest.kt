@@ -155,6 +155,7 @@ class MigrationTest {
             MIGRATION_2_3,
             MIGRATION_3_4,
             MIGRATION_4_5,
+            MIGRATION_5_6,
         )
 
         db.query("SELECT * FROM highlights").use { cursor ->
@@ -189,7 +190,8 @@ class MigrationTest {
             assertEquals("the migrated highlight should be searchable", 1, cursor.count)
         }
 
-        // And the v5 table exists and is empty.
+        // And the v5 and v6 tables exist and are empty.
         db.query("SELECT COUNT(*) FROM review_items").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+        db.query("SELECT COUNT(*) FROM reading_sessions").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
     }
 }

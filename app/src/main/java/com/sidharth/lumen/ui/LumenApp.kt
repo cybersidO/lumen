@@ -14,6 +14,8 @@ import com.sidharth.lumen.feature.notes.NotesScreen
 import com.sidharth.lumen.feature.review.ReviewScreen
 import com.sidharth.lumen.feature.reader.ReaderScreen
 import com.sidharth.lumen.feature.settings.SettingsScreen
+import com.sidharth.lumen.feature.stats.StatsScreen
+import com.sidharth.lumen.feature.reader.input.VolumeKeyDispatcher
 
 /**
  * Single-activity host. Routes are plain strings; the reader's `bookId` is declared as a
@@ -24,6 +26,7 @@ object Routes {
     const val SETTINGS = "settings"
     const val NOTES = "notes"
     const val REVIEW = "review"
+    const val STATS = "stats"
     const val READER = "reader/{bookId}?highlightId={highlightId}"
 
     /** [highlightId] is set when arriving from the notes list, to jump to that spot. */
@@ -32,7 +35,7 @@ object Routes {
 }
 
 @Composable
-fun LumenApp(resolvedTheme: ResolvedTheme) {
+fun LumenApp(resolvedTheme: ResolvedTheme, volumeKeys: VolumeKeyDispatcher) {
     val navController = rememberNavController()
 
     Surface(color = MaterialTheme.colorScheme.background) {
@@ -41,6 +44,7 @@ fun LumenApp(resolvedTheme: ResolvedTheme) {
                 LibraryScreen(
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     onOpenNotes = { navController.navigate(Routes.NOTES) },
+                    onOpenStats = { navController.navigate(Routes.STATS) },
                     onOpenBook = { bookId -> navController.navigate(Routes.reader(bookId)) },
                 )
             }
@@ -59,6 +63,9 @@ fun LumenApp(resolvedTheme: ResolvedTheme) {
             composable(Routes.REVIEW) {
                 ReviewScreen(onBack = { navController.popBackStack() })
             }
+            composable(Routes.STATS) {
+                StatsScreen(onBack = { navController.popBackStack() })
+            }
             composable(
                 route = Routes.READER,
                 arguments = listOf(
@@ -71,6 +78,7 @@ fun LumenApp(resolvedTheme: ResolvedTheme) {
             ) {
                 ReaderScreen(
                     resolvedTheme = resolvedTheme,
+                    volumeKeys = volumeKeys,
                     onBack = { navController.popBackStack() },
                 )
             }

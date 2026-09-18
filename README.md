@@ -58,12 +58,31 @@ order of trust.
   Markdown, CSV or JSON. Backup and restore.
 - **Review** — a daily queue of your highlights and looked-up words as flashcards, on a
   simple 1 / 3 / 7 / 21 / 60-day spaced schedule.
+- **Reading comforts** (1.1.0) — pages that turn *or* scroll, your choice; highlights as
+  fills or underlines; a warm amber tint for night; volume buttons to turn pages; keep the
+  screen on while you read (with an idle timeout); lock the orientation; a haptic tick on
+  selecting and saving; and "~12 min left in this chapter", measured from your own pace.
+- **Auto-scroll** (1.1.0) — in scroll mode, a play button starts the page moving at a
+  speed you set. Tap to pause, tap again to carry on; it crosses chapters by itself.
+- **Reading stats** (1.1.0) — minutes today and this week, a day streak, pages per hour,
+  two weeks of bars, and time per book. Local only; it lives in the same database as
+  everything else and rides along in your backup.
+- **Find books in a folder** (1.1.0) — point Lumen at a folder once and it lists every
+  EPUB in it and its subfolders, ticked and ready to import. The ordinary picker is also
+  multi-select now.
 
 ### Not in this build
 
 - **PDF.** Rendering is written and compiles but has not yet run on a device or been
   tested, so it is held on the `m8-pdf` branch rather than shipped. EPUB only for now.
 - **Cloud sync, accounts, multiple users.** By design, permanently.
+
+### Where to keep your books
+
+The folder scan asks Android for access to one folder. Android refuses to hand over
+`Download` itself, or the top of internal storage ("To protect your privacy, choose
+another folder") — so keep books in a **subfolder**, such as `Download/Books`. Anything
+inside it, however deep, is found.
 
 ## Install on your phone
 

@@ -19,6 +19,10 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -56,6 +60,8 @@ import com.sidharth.lumen.R
 import com.sidharth.lumen.core.books.ImportProgress
 
 const val LibraryImportButtonTag = "library_import_button"
+const val LibraryScanButtonTag = "library_scan_button"
+const val LibraryStatsButtonTag = "library_stats_button"
 const val LibrarySettingsButtonTag = "library_settings_button"
 const val LibraryNotesButtonTag = "library_notes_button"
 const val LibrarySearchFieldTag = "library_search_field"
@@ -66,6 +72,7 @@ const val LibrarySortButtonTag = "library_sort_button"
 fun LibraryScreen(
     onOpenSettings: () -> Unit,
     onOpenNotes: () -> Unit,
+    onOpenStats: () -> Unit,
     onOpenBook: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
@@ -82,8 +89,25 @@ fun LibraryScreen(
     // picker on "application/epub+zip" hides EPUBs from the many providers that report
     // them as octet-stream, which looks like the file is missing.
     val picker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri -> uri?.let(viewModel::import) }
+        ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris -> if (uris.isNotEmpty()) viewModel.import(uris) }
+
+    // "Find books": the user grants one folder, Lumen walks it (M10). Persisting the grant
+    // is what lets a later rescan skip the picker.
+    val context = LocalContext.current
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { treeUri ->
+        treeUri ?: return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                treeUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
+        viewModel.scanFolder(treeUri)
+    }
+    val scanState by viewModel.scanState.collectAsStateWithLifecycle()
 
     val messageText = message?.let { resolveMessage(it) }
     LaunchedEffect(message?.id) {
@@ -104,6 +128,24 @@ fun LibraryScreen(
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
                 ),
                 actions = {
+                    IconButton(
+                        onClick = { folderPicker.launch(null) },
+                        modifier = Modifier.testTag(LibraryScanButtonTag),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.FolderOpen,
+                            contentDescription = stringResource(R.string.library_scan_folder),
+                        )
+                    }
+                    IconButton(
+                        onClick = onOpenStats,
+                        modifier = Modifier.testTag(LibraryStatsButtonTag),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Insights,
+                            contentDescription = stringResource(R.string.stats_open),
+                        )
+                    }
                     Box {
                         IconButton(
                             onClick = { sortMenuOpen = true },
@@ -189,6 +231,16 @@ fun LibraryScreen(
             onConfirm = viewModel::confirmDelete,
         )
     }
+
+    if (scanState !is ScanUiState.Idle) {
+        FolderScanSheet(
+            state = scanState,
+            onToggle = viewModel::toggleFound,
+            onSelectAll = viewModel::selectAllFound,
+            onImport = viewModel::importFound,
+            onDismiss = viewModel::dismissScan,
+        )
+    }
 }
 
 @Composable
@@ -200,6 +252,13 @@ private fun resolveMessage(message: LibraryMessage): String = when (message) {
         stringResource(R.string.library_msg_already_present, message.title)
 
     is LibraryMessage.ImportFailed -> message.reason
+
+    is LibraryMessage.BatchImported -> stringResource(
+        R.string.library_msg_batch,
+        message.imported,
+        message.alreadyPresent,
+        message.failed,
+    )
 
     is LibraryMessage.Deleted -> if (message.keptHighlights > 0) {
         pluralStringResource(

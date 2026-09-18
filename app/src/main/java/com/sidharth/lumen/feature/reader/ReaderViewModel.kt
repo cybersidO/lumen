@@ -11,6 +11,7 @@ import com.sidharth.lumen.core.readium.PublicationRepository
 import com.sidharth.lumen.core.settings.AppSettings
 import com.sidharth.lumen.core.settings.BrightnessSettings
 import com.sidharth.lumen.core.settings.ReaderTypography
+import com.sidharth.lumen.core.settings.ReadingSettings
 import com.sidharth.lumen.core.settings.SettingsRepository
 import com.sidharth.lumen.core.settings.ThemeMode
 import com.sidharth.lumen.feature.highlight.Highlight
@@ -19,6 +20,8 @@ import com.sidharth.lumen.feature.highlight.HighlightRepository
 import com.sidharth.lumen.feature.dictionary.LookupContext
 import com.sidharth.lumen.feature.dictionary.LookupRepository
 import com.sidharth.lumen.feature.dictionary.LookupUiState
+import com.sidharth.lumen.feature.stats.ReadingPace
+import com.sidharth.lumen.feature.stats.ReadingSessionRecorder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -37,6 +40,7 @@ import org.json.JSONObject
 import org.readium.r2.shared.publication.Link
 import org.readium.r2.shared.publication.Locator
 import org.readium.r2.shared.publication.Publication
+import org.readium.r2.shared.publication.services.positionsByReadingOrder
 import java.io.File
 import javax.inject.Inject
 
@@ -60,6 +64,8 @@ data class ReaderChromeState(
     val visible: Boolean = false,
     val progressFraction: Float = 0f,
     val chapterTitle: String? = null,
+    /** "~12 min left in this chapter", once the reader's pace has settled; null until then. */
+    val chapterMinutesLeft: Int? = null,
 )
 
 enum class IndicatorKind { BRIGHTNESS, FONT_SIZE }
@@ -81,6 +87,7 @@ class ReaderViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val highlightRepository: HighlightRepository,
     private val lookupRepository: LookupRepository,
+    private val sessionRecorder: ReadingSessionRecorder,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
@@ -107,6 +114,11 @@ class ReaderViewModel @Inject constructor(
     /** Table of contents, flattened once the publication is open. */
     private val _tableOfContents = MutableStateFlow<List<TocEntry>>(emptyList())
     val tableOfContents: StateFlow<List<TocEntry>> = _tableOfContents
+
+    /** Readium's synthetic page positions, one list per reading-order resource (M10). */
+    private var positionsByResource: List<List<Locator>> = emptyList()
+    private val pace = ReadingPace()
+    private var lastPosition: Int? = null
 
     init {
         load()
@@ -144,6 +156,11 @@ class ReaderViewModel @Inject constructor(
                     )
                     withContext(ioDispatcher) {
                         bookDao.markOpened(bookId, System.currentTimeMillis())
+                        // Computed once per open; a font-size change repaginates and
+                        // Readium recomputes these lazily, so they are re-read on demand
+                        // in onLocatorChanged rather than cached forever.
+                        positionsByResource = runCatching { publication.positionsByReadingOrder() }
+                            .getOrDefault(emptyList())
                     }
                 }
                 .onFailure { error ->
@@ -160,9 +177,19 @@ class ReaderViewModel @Inject constructor(
      */
     fun onLocatorChanged(locator: Locator) {
         val progress = locator.locations.totalProgression?.toFloat() ?: return
+        val now = System.currentTimeMillis()
+
+        // A real page turn is a change of position; repagination and restore also emit
+        // here, and those must not count as reading.
+        val position = locator.locations.position
+        val turned = position != null && lastPosition != null && position != lastPosition
+        lastPosition = position
+        if (turned) pace.onPageTurned(now) else pace.markInteraction(now)
+
         _chrome.value = _chrome.value.copy(
             progressFraction = progress.coerceIn(0f, 1f),
             chapterTitle = locator.title?.takeIf { it.isNotBlank() } ?: _chrome.value.chapterTitle,
+            chapterMinutesLeft = chapterMinutesLeft(locator),
         )
         viewModelScope.launch(ioDispatcher) {
             bookDao.saveProgress(
@@ -170,7 +197,44 @@ class ReaderViewModel @Inject constructor(
                 locatorJson = locator.toJSON().toString(),
                 progressFraction = progress.coerceIn(0f, 1f),
             )
+            if (turned) sessionRecorder.pageTurned(progress, now)
         }
+    }
+
+    /**
+     * Pages remaining in the current resource, times the reader's measured pace. Null
+     * until the pace has a few real turns behind it, so the chrome never shows a number
+     * that is only the default guess.
+     */
+    private fun chapterMinutesLeft(locator: Locator): Int? {
+        if (!pace.isSettled) return null
+        val position = locator.locations.position ?: return null
+        val resource = positionsByResource.firstOrNull { list ->
+            list.any { it.href == locator.href }
+        } ?: return null
+        val index = resource.indexOfFirst { it.locations.position == position }
+        if (index < 0) return null
+        return pace.minutesFor(resource.size - index - 1)
+    }
+
+    // --- reading sessions (M10 stats) ----------------------------------------------------
+
+    /** The reader is on screen and in the foreground. */
+    fun onReaderVisible() {
+        val state = _uiState.value as? ReaderUiState.Ready ?: return
+        viewModelScope.launch {
+            sessionRecorder.start(state.contentHash, _chrome.value.progressFraction, System.currentTimeMillis())
+        }
+    }
+
+    /** The reader left the foreground; flushed through the application scope so a
+     *  back-press that also clears the ViewModel still records the session. */
+    fun onReaderHidden() {
+        applicationScope.launch { sessionRecorder.stop(System.currentTimeMillis()) }
+    }
+
+    fun updateReading(transform: (ReadingSettings) -> ReadingSettings) {
+        viewModelScope.launch { settingsRepository.updateReading(transform) }
     }
 
     fun toggleChrome() {
@@ -267,7 +331,13 @@ class ReaderViewModel @Inject constructor(
         // The publication owns open file handles. Closing outlives this ViewModel, so it
         // runs on the application scope — viewModelScope is already cancelled here.
         val id = bookId
-        applicationScope.launch { publications.close(id) }
+        val now = System.currentTimeMillis()
+        applicationScope.launch {
+            // Belt and braces: onReaderHidden normally closes the session first, but a
+            // ViewModel cleared without a lifecycle stop (rare) must not leave it open.
+            sessionRecorder.stop(now)
+            publications.close(id)
+        }
     }
 
     private fun parseLocator(json: String): Locator? = runCatching {

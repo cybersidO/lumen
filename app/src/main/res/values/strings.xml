@@ -156,4 +156,80 @@
 
     <!-- Navigation -->
     <string name="nav_back">Back</string>
+    <string name="nav_close">Close</string>
+    <string name="nav_done">Done</string>
+
+    <!-- M10: reading comfort -->
+    <string name="reader_page_flow">Page movement</string>
+    <string name="reader_highlight_style">Highlight style</string>
+    <string name="reader_warm_tint">Warm tint</string>
+    <string name="reader_warm_tint_off">Off</string>
+    <string name="reader_chapter_time_left">~%1$d min left in chapter</string>
+    <string name="reader_chapter_ending">Chapter ends this page</string>
+    <string name="auto_scroll_start">Auto-scroll</string>
+    <string name="auto_scroll_pause">Pause auto-scroll</string>
+    <string name="auto_scroll_resume">Resume auto-scroll</string>
+    <string name="auto_scroll_stop">Stop auto-scroll</string>
+    <string name="auto_scroll_speed_label">%1$.2f×</string>
+
+    <string name="settings_reading">Reading</string>
+    <string name="settings_reading_desc">Page movement, highlight style and warm tint live in the reader\'s Aa sheet, next to the text.</string>
+    <string name="reading_volume_keys">Volume buttons turn pages</string>
+    <string name="reading_volume_keys_hint">Volume down is next, volume up is back. Only while a book is open.</string>
+    <string name="reading_haptics">Haptic feedback</string>
+    <string name="reading_haptics_hint">A light tick when text is selected, a firmer one when a highlight is saved.</string>
+    <string name="reading_keep_screen_on">Keep screen on while reading</string>
+    <plurals name="reading_keep_screen_on_hint">
+        <item quantity="one">Lets the screen sleep again after %d minute without a page turn.</item>
+        <item quantity="other">Lets the screen sleep again after %d minutes without a page turn.</item>
+    </plurals>
+    <string name="reading_keep_screen_on_minutes">Idle minutes before sleeping (0 = never)</string>
+    <string name="reading_lock_orientation">Lock orientation in the reader</string>
+    <string name="reading_chapter_time">Show time left in chapter</string>
+    <string name="reading_chapter_time_hint">Estimated from your own pace after a few page turns.</string>
+
+    <!-- M10: stats -->
+    <string name="stats_open">Reading stats</string>
+    <string name="stats_title">Reading</string>
+    <string name="stats_streak">day streak</string>
+    <string name="stats_today">today</string>
+    <string name="stats_this_week">this week</string>
+    <string name="stats_pages_per_hour">pages per hour</string>
+    <string name="stats_last_two_weeks">Last two weeks</string>
+    <string name="stats_by_book">By book</string>
+    <string name="stats_minutes_value">%1$d min</string>
+    <string name="stats_hours_value">%1$dh %2$dm</string>
+    <plurals name="stats_pages_value">
+        <item quantity="one">%d page</item>
+        <item quantity="other">%d pages</item>
+    </plurals>
+    <string name="stats_removed_book">(removed book)</string>
+    <string name="stats_empty">Nothing yet. Read for a little while and come back.</string>
+    <plurals name="stats_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+
+    <!-- M10: folder scan -->
+    <string name="library_scan_folder">Find books in a folder</string>
+    <plurals name="scan_scanning">
+        <item quantity="one">Looking through %d folder…</item>
+        <item quantity="other">Looking through %d folders…</item>
+    </plurals>
+    <string name="scan_none_found">No EPUBs in that folder</string>
+    <string name="scan_none_found_hint">Subfolders were searched too. Try the folder your books are actually in, such as Download.</string>
+    <string name="scan_select_all">Select all</string>
+    <string name="scan_select_none">Select none</string>
+    <string name="scan_importing">Importing %1$d of %2$d</string>
+    <string name="scan_finished_title">Done</string>
+    <string name="scan_size_mb">%1$.1f MB</string>
+    <string name="library_msg_batch">%1$d imported, %2$d already in your library, %3$d failed</string>
+    <plurals name="scan_found_count">
+        <item quantity="one">Found %d book</item>
+        <item quantity="other">Found %d books</item>
+    </plurals>
+    <plurals name="scan_import_count">
+        <item quantity="one">Import %d book</item>
+        <item quantity="other">Import %d books</item>
+    </plurals>
 </resources>
