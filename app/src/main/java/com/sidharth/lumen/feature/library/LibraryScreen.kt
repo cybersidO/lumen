@@ -20,7 +20,6 @@ import androidx.compose.material.icons.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
 import androidx.compose.material.icons.outlined.SwapVert
@@ -61,7 +60,7 @@ import com.sidharth.lumen.core.books.ImportProgress
 
 const val LibraryImportButtonTag = "library_import_button"
 const val LibraryScanButtonTag = "library_scan_button"
-const val LibraryStatsButtonTag = "library_stats_button"
+
 const val LibrarySettingsButtonTag = "library_settings_button"
 const val LibraryNotesButtonTag = "library_notes_button"
 const val LibrarySearchFieldTag = "library_search_field"
@@ -72,7 +71,6 @@ const val LibrarySortButtonTag = "library_sort_button"
 fun LibraryScreen(
     onOpenSettings: () -> Unit,
     onOpenNotes: () -> Unit,
-    onOpenStats: () -> Unit,
     onOpenBook: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
@@ -135,15 +133,6 @@ fun LibraryScreen(
                         Icon(
                             imageVector = Icons.Outlined.FolderOpen,
                             contentDescription = stringResource(R.string.library_scan_folder),
-                        )
-                    }
-                    IconButton(
-                        onClick = onOpenStats,
-                        modifier = Modifier.testTag(LibraryStatsButtonTag),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Insights,
-                            contentDescription = stringResource(R.string.stats_open),
                         )
                     }
                     Box {

@@ -47,6 +47,8 @@ data class BookReadingTotal(
     val minutes: Long,
     @ColumnInfo(name = "pages_turned") val pagesTurned: Long,
     @ColumnInfo(name = "last_read_at") val lastReadAt: Long,
+    /** Null when the book has since been removed. */
+    @ColumnInfo(name = "progress_fraction") val progressFraction: Float?,
 )
 
 @Dao
@@ -66,6 +68,10 @@ interface ReadingSessionDao {
 
     @Query("DELETE FROM reading_sessions WHERE id = :id")
     suspend fun delete(id: Long)
+
+    /** Every session, for the dashboard's in-Kotlin aggregation (M10.1). */
+    @Query("SELECT * FROM reading_sessions ORDER BY started_at ASC")
+    fun observeAll(): Flow<List<ReadingSessionEntity>>
 
     /**
      * Minutes per local calendar day. `unixepoch` arithmetic is done in SQL so the day
@@ -96,7 +102,8 @@ interface ReadingSessionDao {
             b.title AS title,
             SUM(s.ended_at - s.started_at) / 60000 AS minutes,
             SUM(s.pages_turned) AS pages_turned,
-            MAX(s.ended_at) AS last_read_at
+            MAX(s.ended_at) AS last_read_at,
+            b.progress_fraction AS progress_fraction
         FROM reading_sessions s
         LEFT JOIN books b ON b.content_hash = s.book_content_hash
         GROUP BY s.book_content_hash

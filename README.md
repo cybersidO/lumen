@@ -64,9 +64,11 @@ order of trust.
   selecting and saving; and "~12 min left in this chapter", measured from your own pace.
 - **Auto-scroll** (1.1.0) — in scroll mode, a play button starts the page moving at a
   speed you set. Tap to pause, tap again to carry on; it crosses chapters by itself.
-- **Reading stats** (1.1.0) — minutes today and this week, a day streak, pages per hour,
-  two weeks of bars, and time per book. Local only; it lives in the same database as
-  everything else and rides along in your backup.
+- **Home tab** (1.2.0) — the app opens on your reading dashboard: today's minutes with a
+  two-week sparkline, streak, pages per hour, a 16-week calendar heatmap, which weekdays
+  and hours you actually read, your pace over recent sittings, time per book, and
+  records. All local; it lives in the same database as everything else and rides along
+  in your backup. The Library is the second tab.
 - **Find books in a folder** (1.1.0) — point Lumen at a folder once and it lists every
   EPUB in it and its subfolders, ticked and ready to import. The ordinary picker is also
   multi-select now.

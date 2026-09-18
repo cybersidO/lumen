@@ -15,7 +15,8 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M8 | PDF — render, page turn, rect highlights, text lookup | ⏸ | parked on `m8-pdf` — compiles, never executed, no tests |
 | M9 | Ship — signed release APK, R8 verified, README | ☑ | 2026-09-17 · EPUB-only; R8 build opened a book on the emulator |
 | M10 | Reading comforts, folder scan, stats, auto-scroll → 1.1.0 | ☑ | 2026-09-18 · every item verified by measurement, not by eye |
-| M11 | Read-aloud — Readium TTS + on-device Piper voice → 1.2.0 | ☐ | dependency (sherpa-onnx + voice) to be asked about first |
+| M10.1 | Two tabs; Home dashboard with heatmap, week/hour shape, pace, books, records → 1.2.0 | ☑ | 2026-09-18 · charts are Canvas; insights unit-tested incl. zone handling |
+| M11 | Read-aloud — Readium TTS + on-device Piper voice → 1.3.0 | ☐ | dependency (sherpa-onnx + voice) to be asked about first |
 
 ## Environment (this machine, 2026-08-01)
 
@@ -362,6 +363,26 @@ Screenshots in `docs/screenshots/m10/`.
 screenshot frequently disagreed), so several checks above are from `dumpsys`, the
 database, or pixel maths rather than from driving the UI. Nothing in this milestone has
 been felt on a phone; haptics in particular need the owner's thumb.
+
+## M10.1 verification — 2026-09-18 (1.2.0)
+
+| Command | Result |
+|---|---|
+| `./gradlew test` | 141 tests, 0 failures (8 new: `ReadingInsightsTest`) |
+| `./gradlew connectedAndroidTest` | 54 tests, 0 failures |
+| `./gradlew lint` | 0 errors; 1 deliberate warning |
+
+Bottom bar with **Home** and **Library**; Home is the dashboard. Verified on the emulator
+against a seeded month of sessions (synthetic, for the visual only): hero minutes with a
+14-day sparkline and yesterday delta; KPI row; 16-week heatmap with today ringed;
+weekday averages with today emphasised; 24-bin hour histogram with the peak emphasised
+and named; pace line with dashed mean and a ringed latest point; per-book bars with
+progress; records. Tab switch round-trips and restores each tab's scroll state.
+
+**Fixed during verification:** the nested Scaffolds each applied the status-bar inset,
+doubling the gap above the title; and "pages per hour" overflowed its KPI tile.
+
+Screenshots `60–62` in `docs/screenshots/m10/`.
 
 ## Open questions for the owner
 - **Try 1.1.0 on the phone** and report on: haptic strength (light tick on select, firmer on

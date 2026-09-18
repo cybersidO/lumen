@@ -426,3 +426,20 @@ With M10's controls the sheet fills the screen, and the warm-tint slider landed 
 system's bottom gesture zone, where a drag is read as a swipe and dismisses the sheet.
 Fixed with extra bottom padding so the content always scrolls clear of it. Found on the
 emulator by failing to drag it; a thumb would have failed the same way.
+
+## 2026-09-18 — Two tabs: Home (dashboard) and Library
+The owner asked for a home page that leads with the stats. A bottom bar with two tabs
+replaces the library-as-root layout; the reader, notes, review and settings stay
+full-screen pushes so the bar never steals height from a page of text. The outer
+Scaffold's window insets are zeroed because each tab carries its own top bar that
+already insets for the status bar — the first cut doubled the gap.
+
+## 2026-09-18 — Dashboard charts are Canvas, computed in Kotlin, one hue
+Rejected a chart library (a dependency for six small pictures) and rejected SQL
+aggregates (the last ones hid a timezone bug). `ReadingInsights.compute` turns raw
+sessions into everything on the page in one pass with the zone passed in, and is unit
+tested for the two things most likely to be wrong: hour buckets that straddle a boundary
+and the calendar grid's edges. Charts follow one set of rules — magnitude as one hue
+light→dark, "the one that matters" (today, peak hour, top book) in the accent with the
+rest quiet, thin rounded marks with surface gaps, text in text colours, no legend for a
+single series, no dual axes.

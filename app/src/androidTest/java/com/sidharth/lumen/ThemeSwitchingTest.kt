@@ -7,7 +7,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sidharth.lumen.core.settings.ThemeMode
-import com.sidharth.lumen.feature.library.LibrarySettingsButtonTag
+import com.sidharth.lumen.feature.stats.HomeSettingsButtonTag
 import com.sidharth.lumen.feature.settings.themeOptionTag
 import org.junit.Rule
 import org.junit.Test
@@ -26,7 +26,7 @@ class ThemeSwitchingTest {
 
     @Test
     fun everyThemeCanBeSelected() {
-        composeRule.onNodeWithTag(LibrarySettingsButtonTag).performClick()
+        composeRule.onNodeWithTag(HomeSettingsButtonTag).performClick()
 
         listOf(
             ThemeMode.LIGHT,
@@ -43,7 +43,7 @@ class ThemeSwitchingTest {
 
     @Test
     fun themeSurvivesActivityRecreation() {
-        composeRule.onNodeWithTag(LibrarySettingsButtonTag).performClick()
+        composeRule.onNodeWithTag(HomeSettingsButtonTag).performClick()
         composeRule.onNodeWithTag(themeOptionTag(ThemeMode.SEPIA)).performClick()
         composeRule.waitForIdle()
 

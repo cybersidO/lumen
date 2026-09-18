@@ -188,21 +188,42 @@
     <string name="reading_chapter_time">Show time left in chapter</string>
     <string name="reading_chapter_time_hint">Estimated from your own pace after a few page turns.</string>
 
-    <!-- M10: stats -->
-    <string name="stats_open">Reading stats</string>
-    <string name="stats_title">Reading</string>
+    <!-- M10: stats / Home tab -->
+    <string name="tab_home">Home</string>
+    <string name="tab_library">Library</string>
+    <string name="home_title">Reading</string>
+    <string name="home_today_label">Today</string>
+    <string name="home_minutes_unit">min</string>
+    <string name="home_delta_none">Nothing read yet today — or yesterday.</string>
+    <string name="home_delta_up">%1$d min more than yesterday</string>
+    <string name="home_delta_down">%1$d min less than yesterday</string>
+    <string name="home_total">all time</string>
+    <string name="home_calendar_title">Last 16 weeks</string>
+    <plurals name="home_calendar_subtitle">
+        <item quantity="one">Longest streak: %d day</item>
+        <item quantity="other">Longest streak: %d days</item>
+    </plurals>
+    <string name="home_weekday_title">Your week</string>
+    <string name="home_weekday_subtitle">%1$s is your big day — %2$d min on average</string>
+    <string name="home_hour_title">Time of day</string>
+    <string name="home_hour_subtitle">You read most between %1$s and %2$s</string>
+    <string name="home_pace_title">Pace</string>
+    <plurals name="home_pace_subtitle">
+        <item quantity="one">Pages per hour over your last sitting · average %2$d</item>
+        <item quantity="other">Pages per hour over your last %1$d sittings · average %2$d</item>
+    </plurals>
+    <string name="home_records_title">Records</string>
+    <string name="home_record_longest_session">Longest sitting</string>
+    <string name="home_record_best_day">Best day</string>
+    <string name="home_record_longest_streak">Longest streak</string>
+    <string name="home_record_sessions">Sittings</string>
+    <string name="home_record_since">Reading since</string>
     <string name="stats_streak">day streak</string>
-    <string name="stats_today">today</string>
     <string name="stats_this_week">this week</string>
-    <string name="stats_pages_per_hour">pages per hour</string>
-    <string name="stats_last_two_weeks">Last two weeks</string>
+    <string name="stats_pages_per_hour">pages/hr</string>
     <string name="stats_by_book">By book</string>
     <string name="stats_minutes_value">%1$d min</string>
     <string name="stats_hours_value">%1$dh %2$dm</string>
-    <plurals name="stats_pages_value">
-        <item quantity="one">%d page</item>
-        <item quantity="other">%d pages</item>
-    </plurals>
     <string name="stats_removed_book">(removed book)</string>
     <string name="stats_empty">Nothing yet. Read for a little while and come back.</string>
     <plurals name="stats_days">
