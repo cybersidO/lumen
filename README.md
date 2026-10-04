@@ -11,14 +11,18 @@ app has no way to send it anywhere.
 These are things you can verify yourself from the installed app or the source, in that
 order of trust.
 
-- **Three permissions, all for one feature.** `FOREGROUND_SERVICE`,
+- **Four permissions, and what each is for.** "All files access"
+  (`MANAGE_EXTERNAL_STORAGE`) lets the search find books anywhere on the phone; Android
+  offers nothing narrower, so Lumen only ever reads, only looks for `.epub`, and never
+  writes, moves or deletes. It is requested the first time you search, and declining
+  leaves the folder picker working. The other three — `FOREGROUND_SERVICE`,
   `FOREGROUND_SERVICE_MEDIA_PLAYBACK` and `POST_NOTIFICATIONS` exist so read-aloud can
   keep playing once the screen is off, and so the lock screen can show play/pause.
   Android allows background audio no other way. None of them grants access to files, the
   network, the microphone or anything about you, and the notification permission is asked
   for only when you first press Read aloud — decline it and speech still works while the
-  app is open. Before 1.3.0 the list was empty; if you don't want read-aloud, nothing
-  here is ever used.
+  app is open. Before 1.3.0 the list was empty; none of these is used unless you use the
+  feature it belongs to.
 - **Still no `INTERNET`.** The app does not declare it, so the operating system will not
   let Lumen open a network connection at all — there is no setting to get wrong.
   Read-aloud is your phone's own speech synthesis; no text leaves the device, and voices
@@ -78,13 +82,17 @@ order of trust.
   and hours you actually read, your pace over recent sittings, time per book, and
   records. All local; it lives in the same database as everything else and rides along
   in your backup. The Library is the second tab.
-- **Read aloud** (1.3.0) — a speaker button in the reader. It uses the voices already on
+- **Read aloud** (1.3.0) — a speaker button in the reader. The voices are your phone's,
+  not Lumen's, so installing a better text-to-speech engine or Google's high-quality
+  voice data improves it immediately — there's a link to Android's settings in the
+  voice sheet. It uses the voices already on
   your phone, highlights each sentence as it speaks and keeps the page in step, and has
   speed, pitch, a voice picker and a sleep timer. It keeps playing with the screen off,
   with play/pause on the lock screen.
-- **Find books on this phone** (1.3.0) — grant a folder once and Lumen remembers it;
-  after that the search button sweeps every remembered folder in one tap. Add more
-  folders any time. The ordinary picker is also multi-select.
+- **Find books on this phone** (1.4.0) — one button that searches the whole device for
+  EPUBs, wherever they are. It asks for Android's "All files access" the first time; if
+  you'd rather not, the folder-by-folder version from 1.3.0 still works and the picker is
+  multi-select.
 
 ### Not in this build
 
@@ -94,15 +102,14 @@ order of trust.
 
 ### Where to keep your books
 
-Lumen cannot search the whole phone, and that is deliberate: Android offers only one
-permission for it — "All files access" — which grants read/write to everything you own
-and cannot be narrowed to "just EPUBs". Instead, the search button asks for a folder the
-first time and then remembers it, so every later search is a single tap across every
-folder you've added.
+Anywhere. The search button walks the whole device, at any depth, and the same book found
+in several places is imported once — Lumen identifies books by the hash of their contents,
+not their filename.
 
-Android refuses to hand over `Download` itself, or the top of internal storage ("To
-protect your privacy, choose another folder") — so keep books in a **subfolder**, such as
-`Download/Books`. Anything inside it, however deep, is found.
+If you decline "All files access", the folder route still works: pick a folder and Lumen
+remembers it. Android refuses to hand over `Download` itself or the top of internal
+storage in that mode ("To protect your privacy, choose another folder"), so use a
+**subfolder** such as `Download/Books`.
 
 ## Install on your phone
 

@@ -49,11 +49,17 @@ class DeviceBookSearchTest {
         file("Books/scan.pdf")
 
         val found = search.searchRoots(listOf(root))
-        assertEquals(
-            listOf("deep/old.epub", "novel.epub", "top.epub").sorted(),
-            found.map { it.displayName }.sorted().map { it },
-        )
         assertEquals(3, found.size)
+        // displayName is the file's own name; where it lives is reported separately.
+        assertEquals(
+            listOf("novel.epub", "old.epub", "top.epub"),
+            found.map { it.displayName }.sorted(),
+        )
+        assertEquals(
+            "Books/Classics/deep",
+            found.single { it.displayName == "old.epub" }.relativePath,
+        )
+        assertEquals("", found.single { it.displayName == "top.epub" }.relativePath)
     }
 
     @Test

@@ -17,6 +17,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M10 | Reading comforts, folder scan, stats, auto-scroll → 1.1.0 | ☑ | 2026-09-18 · every item verified by measurement, not by eye |
 | M10.1 | Two tabs; Home dashboard with heatmap, week/hour shape, pace, books, records → 1.2.0 | ☑ | 2026-09-18 · charts are Canvas; insights unit-tested incl. zone handling |
 | M11 | Read-aloud (phone voices) + remembered-folder search → 1.3.0 | ☑ | 2026-10-04 · Piper deferred until the owner has heard the free voice |
+| M12 | Scroll by default, no volume paging, whole-phone search → 1.4.0 | ☑ | 2026-10-04 · Piper abandoned as impractical; better TTS engines signposted instead |
 
 ## Environment (this machine, 2026-08-01)
 
@@ -437,15 +438,57 @@ it; that answer decides whether Piper is worth 72MB. The emulator also logged
 Android 16 behaviour aimed at background apps; our foreground service holds focus, but it
 has not been observed on real hardware.
 
+## M12 verification — 2026-10-04 (1.4.0)
+
+| Command | Result |
+|---|---|
+| `./gradlew test` | 151 tests, 0 failures |
+| `./gradlew connectedAndroidTest` | 61 tests, 0 failures (7 new) |
+| `./gradlew lint` | 0 errors; 2 deliberate warnings |
+
+All four changes came from the owner reading with 1.3.0.
+
+**Vertical scrolling is the default**, and **volume buttons no longer turn pages** — both
+with a one-time migration, because a bare default change reaches new installs only and
+this device already had the keys written. Verified on the emulator: the chrome offered
+**Auto-scroll** on a fresh book (it only appears in scroll mode), and six
+`KEYCODE_VOLUME_DOWN` presses left the saved `progress_fraction` at **exactly 0.0000**
+while three taps moved it to 0.0127 — the keys are out of the page, and paging still works.
+
+**Whole-phone search.** EPUBs were scattered to storage root, `Documents/Reading` and
+`MyStuff/deep/nested` — places no folder picker would have suggested. With app data
+cleared and nothing granted, the search offered the permission with its cost spelled out;
+after granting, it found **all nine copies including the four-deep one**, and importing
+them produced *"3 imported, 6 already in your library, 0 failed"* — M1's content hashing
+collapsing nine files to three real books. The database confirms `3 books / 3 unique
+hashes`.
+
+**Read-aloud: Piper abandoned as impractical.** sherpa-onnx cannot be installed through
+Gradle — its JitPack artifact is the desktop build and its native-library dependencies
+fail to resolve; the Android build exists only as a hand-built 47.8MB AAR. Bundling it
+meant committing repackaged binaries. Put back to the owner, who chose the cheaper route:
+the voice sheet now says the voices belong to the phone and links to Android's
+text-to-speech settings, where a better engine or Google's high-quality voice data can be
+installed and is picked up automatically. Zero bytes added.
+
+Screenshots in `docs/screenshots/m12/`.
+
+**One defect found in my own work:** the first `DeviceBookSearchTest` asserted that
+`displayName` carried the folder path. It does not — the path is `relativePath`. The test
+was wrong, not the code; it now checks both.
+
+**Honest limits.** Still emulator-only. Whether a different TTS engine actually sounds
+better is unverified — that is the owner's ear, on their phone. The whole-phone walk was
+measured against a few dozen files; a device with tens of thousands may want a progress
+cancel, which is not built.
+
 ## Open questions for the owner
-- **Listen to read-aloud and judge the voice.** That is the whole decision on Piper: if
-  your phone's voice is good enough, 1.3.0 is done and the APK stays ~13MB; if it is not,
-  swapping in Piper costs ~72MB and is a contained change behind the same interface. Try
-  the voice picker too — the emulator offered many English variants and some are much
-  better than others.
-- **Vertical scrolling already exists** (Aa → Page movement → Scroll). Say if you want it
-  to be the default for new books rather than page-turning.
-- Three permissions now, all for background audio. If you would rather have none, say so
-  and read-aloud becomes foreground-only again.
-- Still emulator-only; nothing in this milestone has been heard on a phone.
+- **Install a better text-to-speech engine and tell me if it fixes the voice.** Reader →
+  Aa is not where it lives: it is in the read-aloud sheet → "Open Android's text-to-speech
+  settings". Download Google's high-quality voice data there, or install RHVoice. If it
+  still disappoints, bundling Piper is ~72MB plus vendored binaries in the repo — say the
+  word and I will do it.
+- **"All files access" is now requested** the first time you search. Declining is a
+  supported path, not a dead end: the folder picker from 1.3.0 still works.
+- Still emulator-only; nothing in this milestone has been used on a phone.
 - PDF (`m8-pdf`) remains parked. Notes' date-range filter still has no picker UI.

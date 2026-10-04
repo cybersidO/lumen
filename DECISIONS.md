@@ -494,3 +494,42 @@ zero-permission claim with a far broader one. Offered with that cost stated plai
 owner chose the alternative. `BookFolderStore` now persists every granted folder, so the
 first search asks once and every search after it is a single tap across all of them.
 Stale grants are dropped on read, so the list never offers a folder that would fail.
+
+## 2026-10-04 — Scrolling is the default, volume paging is not
+Both reversed after the owner read with them. A plain default change would have reached
+new installs only — `updateReading` writes every key at once, so anyone who had ever
+touched a reading setting already had the old values persisted. `applyReadingDefaultsV2`
+rewrites exactly those two keys once, on first launch after the update, and records that
+it ran, so a reader who deliberately turns volume paging back on keeps it. Both remain
+switchable: page-turning in the Aa sheet, volume paging in Settings → Reading.
+
+## 2026-10-04 — Whole-phone search, with the permission's cost stated to the user
+The owner used the remembered-folders search from 1.3.0 and asked for a thorough one
+instead, saying it mattered more than picking folders. That needs
+`MANAGE_EXTERNAL_STORAGE`, which Android cannot scope to one file type. Rather than take
+it silently, the sheet says in plain words what Lumen does with it — reads only, looks
+only for `.epub`, writes nothing, and has no INTERNET permission so nothing it finds can
+leave — and offers "let me pick folders instead" beside it. Declining keeps the whole
+1.3.0 folder flow working.
+
+Implemented as plain `File` traversal rather than SAF, which needs a content-provider
+round-trip per folder; hidden and media directories are skipped because no books live
+there and `Android/data` is unreadable anyway. Verified on the emulator against EPUBs
+deliberately scattered to storage root, `Documents/Reading`, and `MyStuff/deep/nested`:
+all nine copies were found, and M1's content hashing collapsed them to the three distinct
+books ("3 imported, 6 already in your library").
+
+## 2026-10-04 — Piper abandoned as impractical; better engines pointed to instead
+The owner judged the built-in voices bad and asked to move to another platform, which
+meant the Piper plan. It does not survive contact: sherpa-onnx cannot be installed through
+Gradle at all — its JitPack artifact is the *desktop* build, whose
+`sherpa-onnx-native-lib-linux-x64` / `osx-aarch64` dependencies fail to resolve, and the
+Android build exists only as a hand-built 47.8MB AAR on GitHub releases. Shipping it would
+mean committing a repackaged third-party binary plus a ~60MB voice to the repository.
+
+Put back to the owner with that cost, and the cheaper route taken: because Lumen reads
+through Android's TTS framework, **any** engine the user installs is picked up for free.
+The voice sheet now says the voices are the phone's rather than Lumen's and links to
+Android's text-to-speech settings, where Google's high-quality voice data or a free
+engine such as RHVoice can be installed. Zero bytes added. If that still disappoints,
+Piper remains a swap of `TtsEngineProvider` behind the same interface.
