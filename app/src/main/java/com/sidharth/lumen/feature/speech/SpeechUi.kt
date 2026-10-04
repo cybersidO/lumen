@@ -131,6 +131,7 @@ fun SpeechSheet(
     settings: SpeechSettings,
     voices: List<SpeechVoice>,
     onChange: (SpeechSettings) -> Unit,
+    onOpenSystemTtsSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -192,6 +193,16 @@ fun SpeechSheet(
         }
 
         SectionLabel(stringResource(R.string.speech_voice))
+        // The voices are the phone's, not Lumen's, so the honest fix for a poor voice is
+        // to install a better engine — which this app then picks up for free.
+        Text(
+            text = stringResource(R.string.speech_engine_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = onOpenSystemTtsSettings) {
+            Text(stringResource(R.string.speech_open_system_settings))
+        }
         if (voices.isEmpty()) {
             // Honest, and actionable: this is what an empty list actually means.
             Text(

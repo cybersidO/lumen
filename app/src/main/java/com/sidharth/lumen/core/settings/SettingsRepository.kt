@@ -59,7 +59,7 @@ class SettingsRepository @Inject constructor(
         highlightStyle = HighlightStyle.fromStorageKey(this[Keys.HighlightStyle]),
         hapticsEnabled = this[Keys.Haptics] ?: true,
         pageFlow = PageFlow.fromStorageKey(this[Keys.PageFlow]),
-        volumeButtonsTurnPages = this[Keys.VolumeKeys] ?: true,
+        volumeButtonsTurnPages = this[Keys.VolumeKeys] ?: false,
         keepScreenOn = this[Keys.KeepScreenOn] ?: false,
         keepScreenOnMinutes = this[Keys.KeepScreenOnMinutes]
             ?: ReadingSettings.DEFAULT_KEEP_SCREEN_ON_MINUTES,
@@ -68,6 +68,24 @@ class SettingsRepository @Inject constructor(
         showChapterTimeLeft = this[Keys.ChapterTimeLeft] ?: true,
         autoScrollSpeed = this[Keys.AutoScrollSpeed] ?: ReadingSettings.DEFAULT_AUTO_SCROLL_SPEED,
     ).sanitised()
+
+    /**
+     * One-time correction of two defaults changed in 1.4.0 (vertical scrolling on,
+     * volume-button paging off).
+     *
+     * A plain default change would reach new installs only: `updateReading` writes every
+     * key at once, so anyone who had ever touched a reading setting already has the old
+     * values persisted. This rewrites exactly those two, once, and records that it ran —
+     * so a reader who deliberately turns volume paging back on keeps it.
+     */
+    suspend fun applyReadingDefaultsV2() {
+        dataStore.edit { prefs ->
+            if (prefs[Keys.ReadingDefaultsV2] == true) return@edit
+            prefs[Keys.ReadingDefaultsV2] = true
+            prefs[Keys.PageFlow] = PageFlow.SCROLL.storageKey
+            prefs[Keys.VolumeKeys] = false
+        }
+    }
 
     suspend fun updateReading(transform: (ReadingSettings) -> ReadingSettings) {
         dataStore.edit { prefs ->
@@ -179,5 +197,6 @@ class SettingsRepository @Inject constructor(
         val SpeechVoice = stringPreferencesKey("speech_voice_id")
         val SleepTimer = intPreferencesKey("speech_sleep_minutes")
         val StopAtChapterEnd = booleanPreferencesKey("speech_stop_at_chapter_end")
+        val ReadingDefaultsV2 = booleanPreferencesKey("reading_defaults_v2_applied")
     }
 }

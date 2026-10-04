@@ -34,6 +34,7 @@ import com.sidharth.lumen.core.books.FoundBook
 
 const val FolderScanSheetTag = "folder_scan_sheet"
 const val FolderScanImportButtonTag = "folder_scan_import"
+const val ScanGrantButtonTag = "scan_grant_all_files"
 
 /**
  * The results of scanning a folder (M10): every EPUB found, pre-ticked, with one button
@@ -48,6 +49,7 @@ fun FolderScanSheet(
     onSelectAll: (Boolean) -> Unit,
     onImport: () -> Unit,
     onAddFolder: () -> Unit,
+    onGrantAllFiles: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -66,6 +68,29 @@ fun FolderScanSheet(
         ) {
             when (state) {
                 ScanUiState.Idle -> Unit
+
+                ScanUiState.NeedsAllFilesAccess -> {
+                    Text(
+                        text = stringResource(R.string.scan_all_files_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.scan_all_files_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = onGrantAllFiles,
+                        modifier = Modifier.fillMaxWidth().testTag(ScanGrantButtonTag),
+                    ) {
+                        Text(stringResource(R.string.scan_all_files_grant))
+                    }
+                    TextButton(onClick = onAddFolder, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                        Text(stringResource(R.string.scan_all_files_folder_instead))
+                    }
+                }
 
                 ScanUiState.NeedsFolder -> {
                     Text(

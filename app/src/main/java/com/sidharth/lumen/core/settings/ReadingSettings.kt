@@ -26,7 +26,7 @@ enum class PageFlow(val storageKey: String, val displayName: String) {
 
     companion object {
         fun fromStorageKey(key: String?): PageFlow =
-            entries.firstOrNull { it.storageKey == key } ?: PAGED
+            entries.firstOrNull { it.storageKey == key } ?: SCROLL
     }
 }
 
@@ -37,8 +37,13 @@ enum class PageFlow(val storageKey: String, val displayName: String) {
 data class ReadingSettings(
     val highlightStyle: HighlightStyle = HighlightStyle.FILL,
     val hapticsEnabled: Boolean = true,
-    val pageFlow: PageFlow = PageFlow.PAGED,
-    val volumeButtonsTurnPages: Boolean = true,
+    // Scrolling is the default (1.4.0): the owner found continuous scrolling easier than
+    // tapping to turn, and page-turning is one tap away in the Aa sheet for anyone who
+    // prefers it.
+    val pageFlow: PageFlow = PageFlow.SCROLL,
+    // Off by default (1.4.0): the owner found it fired while reaching for the volume and
+    // turned pages by accident. Still available in Settings → Reading.
+    val volumeButtonsTurnPages: Boolean = false,
     val keepScreenOn: Boolean = false,
     /** Idle minutes before the screen may sleep again. 0 means never. */
     val keepScreenOnMinutes: Int = DEFAULT_KEEP_SCREEN_ON_MINUTES,

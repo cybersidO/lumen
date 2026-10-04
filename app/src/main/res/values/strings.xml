@@ -200,6 +200,8 @@
     <string name="speech_pitch">Pitch</string>
     <string name="speech_multiplier">%1$.2f×</string>
     <string name="speech_voice">Voice</string>
+    <string name="speech_engine_hint">These are your phone\'s voices, not Lumen\'s. Installing a better text-to-speech engine — or downloading Google\'s high-quality voice data — improves read-aloud here straight away, at no cost to the app\'s size.</string>
+    <string name="speech_open_system_settings">Open Android\'s text-to-speech settings</string>
     <string name="speech_voice_hint">Only voices that work offline are listed — Lumen has no internet access.</string>
     <string name="speech_voices_all">Show all languages (%1$d more)</string>
     <string name="speech_voices_book_only">Only this book\'s language</string>
@@ -258,6 +260,10 @@
 
     <!-- M10: folder scan -->
     <string name="library_scan_folder">Find books on this phone</string>
+    <string name="scan_all_files_title">Let Lumen search this phone</string>
+    <string name="scan_all_files_body">To find every EPUB wherever it is, Android needs you to switch on “All files access” for Lumen on the next screen. It is a broad permission — Android has none scoped to just one file type — so here is exactly what Lumen does with it: it reads, it looks only for .epub files, and it never writes, moves or deletes anything. Lumen has no internet access, so nothing it finds can leave this phone.</string>
+    <string name="scan_all_files_grant">Open the setting</string>
+    <string name="scan_all_files_folder_instead">No thanks — let me pick folders instead</string>
     <string name="scan_needs_folder_title">Where do you keep your books?</string>
     <string name="scan_needs_folder_body">Pick a folder once and Lumen remembers it — every search after this is a single tap. Android won\'t grant Download itself or the top of storage, so choose a subfolder such as Download/Books. You can add more folders later.</string>
     <string name="scan_choose_folder">Choose a folder</string>

@@ -19,6 +19,9 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
+import android.Manifest
+import android.os.Build
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.DropdownMenu
@@ -96,6 +99,16 @@ fun LibraryScreen(
         treeUri ?: return@rememberLauncherForActivityResult
         viewModel.addFolderAndSearch(treeUri)
     }
+
+    // Returning from the all-files Settings screen carries no result, so the grant is
+    // re-checked on the way back rather than trusted.
+    val context = LocalContext.current
+    val allFilesGrant = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { viewModel.searchAfterGrant() }
+    val legacyStorageGrant = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { viewModel.searchAfterGrant() }
     val scanState by viewModel.scanState.collectAsStateWithLifecycle()
 
     val messageText = message?.let { resolveMessage(it) }
@@ -118,7 +131,7 @@ fun LibraryScreen(
                 ),
                 actions = {
                     IconButton(
-                        onClick = { viewModel.searchRememberedFolders() },
+                        onClick = { viewModel.search() },
                         modifier = Modifier.testTag(LibraryScanButtonTag),
                     ) {
                         Icon(
@@ -219,6 +232,17 @@ fun LibraryScreen(
             onSelectAll = viewModel::selectAllFound,
             onImport = viewModel::importFound,
             onAddFolder = { folderPicker.launch(null) },
+            onGrantAllFiles = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val intent = viewModel.allFilesIntent()
+                    // Some OEM builds don't honour the per-app action; fall back to the
+                    // global list rather than crashing on a missing activity.
+                    runCatching { allFilesGrant.launch(intent) }
+                        .onFailure { allFilesGrant.launch(viewModel.allFilesFallbackIntent()) }
+                } else {
+                    legacyStorageGrant.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                }
+            },
             onDismiss = viewModel::dismissScan,
         )
     }

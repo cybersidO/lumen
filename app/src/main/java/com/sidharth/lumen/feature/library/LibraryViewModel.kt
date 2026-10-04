@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sidharth.lumen.core.books.BookImporter
 import com.sidharth.lumen.core.books.BookFolderStore
+import com.sidharth.lumen.core.books.DeviceBookSearch
 import com.sidharth.lumen.core.books.FolderScanner
 import com.sidharth.lumen.core.books.FoundBook
 import kotlinx.coroutines.Job
@@ -42,6 +43,8 @@ sealed interface ScanUiState {
     data object Idle : ScanUiState
     /** No folders remembered yet — the first run asks for one. */
     data object NeedsFolder : ScanUiState
+    /** Whole-device search was asked for but "all files access" is not granted yet. */
+    data object NeedsAllFilesAccess : ScanUiState
     data class Scanning(val foldersSeen: Int) : ScanUiState
     data class Found(val books: List<FoundBook>, val selected: Set<Uri>) : ScanUiState
     data class Importing(val done: Int, val total: Int, val currentName: String) : ScanUiState
@@ -79,6 +82,7 @@ class LibraryViewModel @Inject constructor(
     private val importer: BookImporter,
     private val scanner: FolderScanner,
     private val folderStore: BookFolderStore,
+    private val deviceSearch: DeviceBookSearch,
     storage: BookStorage,
 ) : ViewModel() {
 
@@ -165,8 +169,40 @@ class LibraryViewModel @Inject constructor(
     // --- folder scan (M10) ---------------------------------------------------------------
 
     /**
-     * One-tap search: walks every remembered folder. Asks for a folder only the first
-     * time, or when every previous grant has gone stale.
+     * The search button (1.4.0). Sweeps the whole device when "all files access" is
+     * granted, and falls back to the remembered folders when it is not — so the feature
+     * still works for anyone who declines the permission.
+     */
+    fun search() {
+        // Thorough search is the headline, so a missing grant offers to fix itself rather
+        // than quietly doing the narrower folder search instead.
+        if (deviceSearch.hasAccess()) searchWholeDevice() else _scanState.value = ScanUiState.NeedsAllFilesAccess
+    }
+
+    /** Called after the user returns from the grant screen. */
+    fun searchAfterGrant() {
+        if (deviceSearch.hasAccess()) searchWholeDevice() else _scanState.value = ScanUiState.NeedsAllFilesAccess
+    }
+
+    fun allFilesIntent() = deviceSearch.grantIntent()
+        ?: deviceSearch.fallbackGrantIntent()
+
+    fun allFilesFallbackIntent() = deviceSearch.fallbackGrantIntent()
+
+    private fun searchWholeDevice() {
+        scanJob?.cancel()
+        scanJob = viewModelScope.launch {
+            _scanState.value = ScanUiState.Scanning(0)
+            val books = runCatching {
+                deviceSearch.search { n -> _scanState.value = ScanUiState.Scanning(n) }
+            }.getOrElse { emptyList() }
+            _scanState.value = ScanUiState.Found(books, books.map { it.uri }.toSet())
+        }
+    }
+
+    /**
+     * Walks every remembered folder. Asks for a folder only the first time, or when every
+     * previous grant has gone stale.
      */
     fun searchRememberedFolders() {
         scanJob?.cancel()

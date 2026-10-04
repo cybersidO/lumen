@@ -129,6 +129,7 @@ fun ReaderScreen(
                     readiumPreferences(settings.typography, resolvedTheme, reading.pageFlow)
                 }
                 val hostView = LocalView.current
+                val appContext = LocalContext.current
                 var autoScroll by remember { mutableStateOf(AutoScrollState()) }
                 var showSpeechSheet by remember { mutableStateOf(false) }
                 // Android 13+ needs this granted before a foreground service may post the
@@ -380,6 +381,7 @@ fun ReaderScreen(
                             settings = settings.speech,
                             voices = speechVoices,
                             onChange = { updated -> viewModel.updateSpeech { updated } },
+                            onOpenSystemTtsSettings = { openTtsSettings(appContext) },
                         )
                     }
                 }
@@ -763,5 +765,24 @@ private fun TableOfContentsSheet(
                 )
             }
         }
+    }
+}
+
+/**
+ * Opens Android's own text-to-speech screen, where voice data is installed and the engine
+ * is chosen. Lumen reads with whatever the phone provides, so this is the real fix for a
+ * voice the reader doesn't like — and it costs the app nothing. A plain Settings intent;
+ * no permission involved.
+ */
+private fun openTtsSettings(context: android.content.Context) {
+    val candidates = listOf(
+        Intent("com.android.settings.TTS_SETTINGS"),
+        Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS),
+    )
+    for (intent in candidates) {
+        val launched = runCatching {
+            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.isSuccess
+        if (launched) return
     }
 }

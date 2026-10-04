@@ -35,6 +35,29 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+      1.4.0: "Find books on this phone" searches all of shared storage. Android offers no
+      permission scoped to one file type — MANAGE_EXTERNAL_STORAGE is the only thing that
+      can see files the user has not handed over a folder at a time, and it is broad.
+      The owner asked for the thorough search after using the folder-by-folder version.
+
+      Lumen only reads, and only looks for .epub. Nothing is written, moved or deleted,
+      and with no INTERNET permission nothing it finds can leave the phone. It is
+      requested when you first use the search, never at launch, and the app still works
+      without it — the folder picker remains.
+
+      Google Play forbids this permission for apps like this one. That does not apply
+      here (Lumen is sideloaded and never published), and `tools:ignore` records that the
+      lint warning was read rather than missed.
+    -->
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+    <!-- Android 10 and below have no all-files concept; this is the equivalent there. -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+
     <application
         android:name=".LumenApplication"
         android:allowBackup="false"

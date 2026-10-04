@@ -18,7 +18,16 @@ class ReadingSettingsTest {
     @Test
     fun unknownStorageKeysFallBackToDefaults() {
         assertEquals(HighlightStyle.FILL, HighlightStyle.fromStorageKey("neon"))
-        assertEquals(PageFlow.PAGED, PageFlow.fromStorageKey(null))
-        assertEquals(PageFlow.SCROLL, PageFlow.fromStorageKey("scroll"))
+        // Scrolling became the default in 1.4.0.
+        assertEquals(PageFlow.SCROLL, PageFlow.fromStorageKey(null))
+        assertEquals(PageFlow.SCROLL, PageFlow.fromStorageKey("gibberish"))
+        assertEquals(PageFlow.PAGED, PageFlow.fromStorageKey("paged"))
+    }
+
+    @Test
+    fun theShippedDefaultsAreScrollingWithVolumePagingOff() {
+        val d = ReadingSettings.Defaults
+        assertEquals(PageFlow.SCROLL, d.pageFlow)
+        assertEquals(false, d.volumeButtonsTurnPages)
     }
 }
