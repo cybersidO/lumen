@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -47,6 +48,7 @@ import java.util.Locale
 const val HomeHeroTag = "home_hero"
 const val HomeHeatmapTag = "home_heatmap"
 const val HomeSettingsButtonTag = "home_settings_button"
+const val HomeGoalRingTag = "home_goal_ring"
 
 /**
  * The Home tab (M10.1): a dashboard of the reading habit. Leads with one hero figure —
@@ -112,11 +114,39 @@ fun HomeScreen(
                             modifier = Modifier.padding(start = 6.dp, bottom = 12.dp),
                         )
                         Spacer(Modifier.weight(1f))
-                        Sparkline(values = insights.sparkline, modifier = Modifier.fillMaxWidth(0.42f).padding(bottom = 14.dp))
+                        if (state.dailyGoalMinutes > 0) {
+                            GoalRing(
+                                progress = state.goalProgress,
+                                modifier = Modifier.size(76.dp).padding(bottom = 8.dp).testTag(HomeGoalRingTag),
+                            ) {
+                                Text(
+                                    text = if (state.goalMet) "✓"
+                                    else "${(state.goalProgress * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        } else {
+                            Sparkline(
+                                values = insights.sparkline,
+                                modifier = Modifier.fillMaxWidth(0.42f).padding(bottom = 14.dp),
+                            )
+                        }
                     }
                     val delta = insights.todayMinutes - insights.yesterdayMinutes
+                    if (state.dailyGoalMinutes > 0) {
+                        Sparkline(
+                            values = insights.sparkline,
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp),
+                        )
+                    }
                     Text(
                         text = when {
+                            state.goalMet -> stringResource(R.string.home_goal_met, state.dailyGoalMinutes)
+                            state.dailyGoalMinutes > 0 -> stringResource(
+                                R.string.home_goal_remaining,
+                                (state.dailyGoalMinutes - insights.todayMinutes).coerceAtLeast(0),
+                            )
                             insights.yesterdayMinutes == 0L && insights.todayMinutes == 0L -> stringResource(R.string.home_delta_none)
                             delta >= 0 -> stringResource(R.string.home_delta_up, delta)
                             else -> stringResource(R.string.home_delta_down, -delta)

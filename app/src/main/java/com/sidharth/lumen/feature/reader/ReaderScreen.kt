@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -95,6 +96,7 @@ const val ReaderTypographyButtonTag = "reader_typography_button"
 const val ReaderSurfaceTag = "reader_surface"
 const val ReaderAutoScrollButtonTag = "reader_auto_scroll_button"
 const val ReaderReadAloudButtonTag = "reader_read_aloud_button"
+const val ReaderSearchButtonTag = "reader_search_button"
 const val ReaderChapterTimeTag = "reader_chapter_time"
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -132,6 +134,8 @@ fun ReaderScreen(
                 val appContext = LocalContext.current
                 var autoScroll by remember { mutableStateOf(AutoScrollState()) }
                 var showSpeechSheet by remember { mutableStateOf(false) }
+                var showSearch by remember { mutableStateOf(false) }
+                val searchState by viewModel.searchState.collectAsStateWithLifecycle()
                 // Android 13+ needs this granted before a foreground service may post the
                 // notification that carries the lock-screen controls. Asked for only when
                 // read-aloud is actually started, never on first launch; if it is declined
@@ -256,6 +260,12 @@ fun ReaderScreen(
                     interactionKey = chrome.progressFraction,
                 )
                 LockOrientation(activity = activity, locked = reading.lockOrientation)
+                // Bars follow the chrome: down with it, back with it.
+                ImmersiveReading(
+                    activity = activity,
+                    enabled = reading.fullScreen,
+                    chromeVisible = chrome.visible || showSearch || showSpeechSheet || showTypography || showToc,
+                )
                 AutoScrollDriver(
                     navigator = navigator,
                     state = autoScroll,
@@ -348,6 +358,11 @@ fun ReaderScreen(
                     onBack = onBack,
                     onOpenToc = { showToc = true },
                     onOpenTypography = { showTypography = true },
+                    onSearch = if (viewModel.isSearchable) {
+                        { showSearch = true; viewModel.hideChrome() }
+                    } else {
+                        null
+                    },
                     onStartReadAloud = if (!speechActive) ::beginReadAloud else null,
                     onStartAutoScroll = if (reading.pageFlow.isScroll && !autoScroll.active) {
                         {
@@ -368,6 +383,26 @@ fun ReaderScreen(
                         onOpenSettings = { showSpeechSheet = true },
                         onStop = viewModel::stopSpeech,
                     )
+                }
+
+                if (showSearch) {
+                    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                    ModalBottomSheet(
+                        onDismissRequest = { showSearch = false; viewModel.clearSearch() },
+                        sheetState = sheetState,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ) {
+                        SearchSheet(
+                            state = searchState,
+                            onQueryChange = viewModel::search,
+                            onLoadMore = viewModel::searchLoadMore,
+                            onSelect = { hit ->
+                                navigator?.go(hit.locator, animated = false)
+                                showSearch = false
+                                viewModel.clearSearch()
+                            },
+                        )
+                    }
                 }
 
                 if (showSpeechSheet) {
@@ -558,6 +593,8 @@ private fun ReaderChrome(
     onBack: () -> Unit,
     onOpenToc: () -> Unit,
     onOpenTypography: () -> Unit,
+    /** Null when the book has no searchable text. */
+    onSearch: (() -> Unit)?,
     /** Null while read-aloud is already running. */
     onStartReadAloud: (() -> Unit)?,
     /** Null when auto-scroll is unavailable (paged mode) or already running. */
@@ -583,6 +620,17 @@ private fun ReaderChrome(
                     }
                 },
                 actions = {
+                    if (onSearch != null) {
+                        IconButton(
+                            onClick = onSearch,
+                            modifier = Modifier.testTag(ReaderSearchButtonTag),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Search,
+                                contentDescription = stringResource(R.string.search_in_book),
+                            )
+                        }
+                    }
                     if (onStartReadAloud != null) {
                         IconButton(
                             onClick = onStartReadAloud,

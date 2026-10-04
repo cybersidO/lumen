@@ -188,6 +188,18 @@
     <string name="reading_chapter_time">Show time left in chapter</string>
     <string name="reading_chapter_time_hint">Estimated from your own pace after a few page turns.</string>
 
+    <!-- M13: search inside the book -->
+    <string name="search_in_book">Search in this book</string>
+    <string name="search_clear">Clear</string>
+    <string name="search_hint">Type a word or phrase to find it anywhere in this book.</string>
+    <string name="search_no_results">No matches for “%1$s”.</string>
+    <plurals name="search_result_count">
+        <item quantity="one">%d match</item>
+        <item quantity="other">%d matches</item>
+    </plurals>
+    <string name="reading_full_screen">Full screen while reading</string>
+    <string name="reading_full_screen_hint">Hides the status and navigation bars. Swipe from the edge to see the clock without leaving the page.</string>
+
     <!-- M11: read-aloud -->
     <string name="speech_start">Read aloud</string>
     <string name="speech_play">Play</string>
@@ -225,6 +237,11 @@
     <string name="home_delta_up">%1$d min more than yesterday</string>
     <string name="home_delta_down">%1$d min less than yesterday</string>
     <string name="home_total">all time</string>
+    <string name="home_goal_met">Goal met — %1$d min today</string>
+    <string name="home_goal_remaining">%1$d min to go today</string>
+    <string name="reading_daily_goal">Daily reading goal</string>
+    <string name="reading_daily_goal_hint">Shown as a ring on Home. Set to Off for no goal.</string>
+    <string name="reading_goal_off">Off</string>
     <string name="home_calendar_title">Last 16 weeks</string>
     <plurals name="home_calendar_subtitle">
         <item quantity="one">Longest streak: %d day</item>

@@ -18,6 +18,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M10.1 | Two tabs; Home dashboard with heatmap, week/hour shape, pace, books, records → 1.2.0 | ☑ | 2026-09-18 · charts are Canvas; insights unit-tested incl. zone handling |
 | M11 | Read-aloud (phone voices) + remembered-folder search → 1.3.0 | ☑ | 2026-10-04 · Piper deferred until the owner has heard the free voice |
 | M12 | Scroll by default, no volume paging, whole-phone search → 1.4.0 | ☑ | 2026-10-04 · Piper abandoned as impractical; better TTS engines signposted instead |
+| M13 | Search inside the book, full screen, daily goal ring → 1.5.0 | ☑ | 2026-10-04 · all three measured, not eyeballed |
 
 ## Environment (this machine, 2026-08-01)
 
@@ -482,13 +483,48 @@ better is unverified — that is the owner's ear, on their phone. The whole-phon
 measured against a few dozen files; a device with tens of thousands may want a progress
 cancel, which is not built.
 
+## M13 verification — 2026-10-04 (1.5.0)
+
+| Command | Result |
+|---|---|
+| `./gradlew test` | 158 tests, 0 failures (7 new) |
+| `./gradlew connectedAndroidTest` | 61 tests, 0 failures |
+| `./gradlew lint` | 0 errors; 3 deliberate warnings |
+
+**Search inside the book.** Readium's `SearchIterator`, streamed a page at a time. On the
+emulator, searching *Hitchhiker's Guide* for "bulldozer" returned **"15 matches+"**, each
+with its chapter and the phrase in context; tapping a result moved the saved position
+from **0.0000 to 0.0339** and dismissed the sheet.
+
+**Full screen.** Measured rather than eyeballed: **143 dark pixels** in the top 60px strip
+with the chrome up (the clock and status icons), and **exactly 0** with it down. Android
+itself raised its "Viewing full screen — swipe down to exit" notice, which is the system
+confirming immersive mode engaged. Bars are restored on dispose, so leaving the reader
+never strands the rest of the app.
+
+**Daily goal ring.** After ~4 minutes of reading the hero showed **4 min · 20% · "16 min
+to go today"** against the default 20-minute goal — three numbers that reconcile exactly.
+Over-achievement fills the ring rather than lapping; "Off" removes it entirely and the
+sparkline returns.
+
+Screenshots in `docs/screenshots/m13/`.
+
+**One defect fixed:** `MediaStyleNotificationHelper` is an unstable Media3 API, and lint
+had been failing on it since M11 — the release build never gated on lint, so it went
+unnoticed. Kotlin's `@OptIn` does not satisfy Android lint; it wants
+`@androidx.annotation.OptIn`. Now 0 lint errors again.
+
+**Honest limits.** Still emulator-only. Search was exercised on one English EPUB; a book
+whose text extraction Readium handles poorly would search poorly, and the "can't be
+searched" state exists but has not been seen. The goal ring was verified at 20% — met and
+over-met are covered by unit tests, not on screen.
+
 ## Open questions for the owner
-- **Install a better text-to-speech engine and tell me if it fixes the voice.** Reader →
-  Aa is not where it lives: it is in the read-aloud sheet → "Open Android's text-to-speech
-  settings". Download Google's high-quality voice data there, or install RHVoice. If it
-  still disappoints, bundling Piper is ~72MB plus vendored binaries in the repo — say the
-  word and I will do it.
-- **"All files access" is now requested** the first time you search. Declining is a
-  supported path, not a dead end: the folder picker from 1.3.0 still works.
-- Still emulator-only; nothing in this milestone has been used on a phone.
+- **Install a better text-to-speech engine** — still the open one from 1.4.0. Read-aloud
+  sheet → "Open Android's text-to-speech settings". If a good engine still disappoints,
+  bundling Piper is ~72MB plus vendored binaries; say the word.
+- **Daily goal defaults to 20 minutes.** Settings → Reading has 10/15/20/30/45/60 and Off.
+- **Full screen is on by default.** Swipe down from the top to see the clock without
+  leaving the page; the toggle is in Settings → Reading.
+- Still emulator-only; nothing has been used on a phone.
 - PDF (`m8-pdf`) remains parked. Notes' date-range filter still has no picker UI.

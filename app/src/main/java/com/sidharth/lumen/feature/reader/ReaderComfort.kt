@@ -12,6 +12,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -108,6 +111,36 @@ fun VolumeKeyPaging(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             dispatcher.unregister(handler)
+        }
+    }
+}
+
+/**
+ * True full-screen reading (M13): hides the status and navigation bars while the chrome is
+ * down, and brings them back with it.
+ *
+ * `BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE` means a swipe from the edge still reveals the
+ * clock and battery for a moment without leaving the book — the bars are out of the way,
+ * not taken away. Everything is restored on dispose, so leaving the reader never strands
+ * the rest of the app without its system bars.
+ */
+@Composable
+fun ImmersiveReading(activity: Activity?, enabled: Boolean, chromeVisible: Boolean) {
+    val window = activity?.window ?: return
+    DisposableEffect(window) {
+        onDispose {
+            val controller = WindowCompat.getInsetsController(window, window.decorView)
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+    LaunchedEffect(window, enabled, chromeVisible) {
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (enabled && !chromeVisible) {
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller.show(WindowInsetsCompat.Type.systemBars())
         }
     }
 }

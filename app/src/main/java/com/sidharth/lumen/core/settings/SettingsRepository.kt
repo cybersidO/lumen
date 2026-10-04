@@ -66,6 +66,8 @@ class SettingsRepository @Inject constructor(
         warmTint = this[Keys.WarmTint] ?: 0f,
         lockOrientation = this[Keys.LockOrientation] ?: false,
         showChapterTimeLeft = this[Keys.ChapterTimeLeft] ?: true,
+        fullScreen = this[Keys.FullScreen] ?: true,
+        dailyGoalMinutes = this[Keys.DailyGoal] ?: ReadingSettings.DEFAULT_DAILY_GOAL_MINUTES,
         autoScrollSpeed = this[Keys.AutoScrollSpeed] ?: ReadingSettings.DEFAULT_AUTO_SCROLL_SPEED,
     ).sanitised()
 
@@ -99,6 +101,8 @@ class SettingsRepository @Inject constructor(
             prefs[Keys.WarmTint] = updated.warmTint
             prefs[Keys.LockOrientation] = updated.lockOrientation
             prefs[Keys.ChapterTimeLeft] = updated.showChapterTimeLeft
+            prefs[Keys.FullScreen] = updated.fullScreen
+            prefs[Keys.DailyGoal] = updated.dailyGoalMinutes
             prefs[Keys.AutoScrollSpeed] = updated.autoScrollSpeed
         }
     }
@@ -197,6 +201,8 @@ class SettingsRepository @Inject constructor(
         val SpeechVoice = stringPreferencesKey("speech_voice_id")
         val SleepTimer = intPreferencesKey("speech_sleep_minutes")
         val StopAtChapterEnd = booleanPreferencesKey("speech_stop_at_chapter_end")
+        val FullScreen = booleanPreferencesKey("reading_full_screen")
+        val DailyGoal = intPreferencesKey("reading_daily_goal_minutes")
         val ReadingDefaultsV2 = booleanPreferencesKey("reading_defaults_v2_applied")
     }
 }

@@ -1,7 +1,9 @@
 package com.sidharth.lumen.feature.stats
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -221,6 +224,51 @@ fun HorizontalBars(
                 )
             }
         }
+    }
+}
+
+/**
+ * The daily-goal ring (M13): a track plus the fraction of today's goal met, drawn from
+ * twelve o'clock clockwise. Over-achievement is shown as a complete ring rather than a
+ * second lap — the point is "done", not a score.
+ */
+@Composable
+fun GoalRing(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    strokeWidth: androidx.compose.ui.unit.Dp = 8.dp,
+    content: @Composable () -> Unit = {},
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    val clamped = progress.coerceIn(0f, 1f)
+    Box(contentAlignment = Alignment.Center, modifier = modifier) {
+        Canvas(Modifier.fillMaxSize()) {
+            val stroke = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round)
+            val inset = strokeWidth.toPx() / 2f
+            val arcSize = Size(size.width - inset * 2, size.height - inset * 2)
+            drawArc(
+                color = track,
+                startAngle = 0f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = Offset(inset, inset),
+                size = arcSize,
+                style = stroke,
+            )
+            if (clamped > 0f) {
+                drawArc(
+                    color = accent,
+                    startAngle = -90f,
+                    sweepAngle = 360f * clamped,
+                    useCenter = false,
+                    topLeft = Offset(inset, inset),
+                    size = arcSize,
+                    style = stroke,
+                )
+            }
+        }
+        content()
     }
 }
 

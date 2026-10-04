@@ -533,3 +533,30 @@ The voice sheet now says the voices are the phone's rather than Lumen's and link
 Android's text-to-speech settings, where Google's high-quality voice data or a free
 engine such as RHVoice can be installed. Zero bytes added. If that still disappoints,
 Piper remains a swap of `TtsEngineProvider` behind the same interface.
+
+## 2026-10-04 — Search results stream in pages, not all at once
+Readium's `SearchIterator` hands back one page of hits per `next()`, and the UI follows
+that rather than flattening it: the first handful appear immediately on a long book and
+the list pulls more as it is scrolled. Flattening would have meant scanning the whole
+publication before showing anything — the wrong trade for the common case, which is
+finding a phrase you half-remember near where you already are. The iterator owns
+resources, so it is closed when the query changes, when the sheet is dismissed, and in
+`onCleared`.
+
+The count is shown as "15 matches+" while more pages remain, because `resultCount` is
+documented as optional and is null for the string search service — claiming a total we do
+not have would be a small lie repeated on every search.
+
+## 2026-10-04 — Full screen follows the chrome, and restores on the way out
+The system bars hide whenever the reading chrome is down and come back with it, with
+`BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE` so an edge swipe still reveals the clock without
+leaving the page. Everything is restored in `onDispose`: an immersive flag left set would
+follow the reader out and strand the rest of the app without its bars. Verified by pixel
+count rather than by eye — 143 dark pixels in the top strip with chrome up, exactly 0 with
+it down.
+
+## 2026-10-04 — The goal ring shows "done", not a score
+Over-achievement fills the ring and stops. A second lap, or a percentage climbing past
+100, turns a quiet habit into a leaderboard, which is the opposite of what a reading app
+should do to reading. Default 20 minutes, and "Off" is a first-class choice in the
+picker — the ring disappears entirely and the hero keeps its sparkline.

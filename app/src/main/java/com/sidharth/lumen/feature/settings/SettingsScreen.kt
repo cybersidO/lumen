@@ -46,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sidharth.lumen.R
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.FilterChip
 import com.sidharth.lumen.core.settings.GestureSettings
 import com.sidharth.lumen.core.settings.ReadingSettings
 import kotlin.math.roundToInt
@@ -211,6 +213,35 @@ fun SettingsScreen(
                 onChange = { v -> viewModel.updateReading { it.copy(lockOrientation = v) } },
             )
             GestureToggleRow(
+                label = stringResource(R.string.reading_full_screen),
+                hint = stringResource(R.string.reading_full_screen_hint),
+                checked = settings.reading.fullScreen,
+                onChange = { v -> viewModel.updateReading { it.copy(fullScreen = v) } },
+            )
+            SectionSubLabel(
+                stringResource(R.string.reading_daily_goal),
+                stringResource(R.string.reading_daily_goal_hint),
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 4.dp),
+            ) {
+                ReadingSettings.DAILY_GOAL_PRESETS.forEach { minutes ->
+                    FilterChip(
+                        selected = settings.reading.dailyGoalMinutes == minutes,
+                        onClick = { viewModel.updateReading { it.copy(dailyGoalMinutes = minutes) } },
+                        label = {
+                            Text(
+                                if (minutes == 0) stringResource(R.string.reading_goal_off)
+                                else stringResource(R.string.speech_sleep_minutes, minutes),
+                            )
+                        },
+                    )
+                }
+            }
+            GestureToggleRow(
                 label = stringResource(R.string.reading_chapter_time),
                 hint = stringResource(R.string.reading_chapter_time_hint),
                 checked = settings.reading.showChapterTimeLeft,
@@ -278,6 +309,22 @@ private fun GestureToggleRow(
             }
         }
         Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+private fun SectionSubLabel(title: String, hint: String) {
+    Column(Modifier.padding(horizontal = 24.dp).padding(top = 12.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Text(
+            text = hint,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

@@ -77,6 +77,12 @@ order of trust.
   selecting and saving; and "~12 min left in this chapter", measured from your own pace.
 - **Auto-scroll** (1.1.0) — in scroll mode, a play button starts the page moving at a
   speed you set. Tap to pause, tap again to carry on; it crosses chapters by itself.
+- **Search inside the book** (1.5.0) — find any phrase anywhere in what you're reading,
+  with its chapter and surrounding sentence; tap a result to jump there.
+- **Full screen** (1.5.0) — the status and navigation bars get out of the way while you
+  read and come back with the controls. Swipe from the top edge to peek at the clock.
+- **Daily reading goal** (1.5.0) — a ring on Home showing today against your target.
+  20 minutes by default, or off.
 - **Home tab** (1.2.0) — the app opens on your reading dashboard: today's minutes with a
   two-week sparkline, streak, pages per hour, a 16-week calendar heatmap, which weekdays
   and hours you actually read, your pace over recent sittings, time per book, and

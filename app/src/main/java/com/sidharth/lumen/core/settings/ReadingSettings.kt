@@ -51,17 +51,26 @@ data class ReadingSettings(
     val warmTint: Float = 0f,
     val lockOrientation: Boolean = false,
     val showChapterTimeLeft: Boolean = true,
+    /** Hide the status and navigation bars while reading (M13). */
+    val fullScreen: Boolean = true,
+    /** Minutes a day the reader is aiming for; 0 means no goal (M13). */
+    val dailyGoalMinutes: Int = DEFAULT_DAILY_GOAL_MINUTES,
     /** Auto-scroll speed as a multiplier of a comfortable base rate. */
     val autoScrollSpeed: Float = DEFAULT_AUTO_SCROLL_SPEED,
 ) {
     fun sanitised(): ReadingSettings = copy(
         keepScreenOnMinutes = keepScreenOnMinutes.coerceIn(0, MAX_KEEP_SCREEN_ON_MINUTES),
+        dailyGoalMinutes = dailyGoalMinutes.coerceIn(0, MAX_DAILY_GOAL_MINUTES),
         warmTint = warmTint.coerceIn(0f, 1f),
         autoScrollSpeed = autoScrollSpeed.coerceIn(MIN_AUTO_SCROLL_SPEED, MAX_AUTO_SCROLL_SPEED),
     )
 
     companion object {
         const val DEFAULT_KEEP_SCREEN_ON_MINUTES = 10
+
+        const val DEFAULT_DAILY_GOAL_MINUTES = 20
+        const val MAX_DAILY_GOAL_MINUTES = 240
+        val DAILY_GOAL_PRESETS = listOf(0, 10, 15, 20, 30, 45, 60)
         const val MAX_KEEP_SCREEN_ON_MINUTES = 60
 
         const val MIN_AUTO_SCROLL_SPEED = 0.25f

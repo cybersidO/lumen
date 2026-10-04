@@ -285,6 +285,53 @@ class ReaderViewModel @Inject constructor(
         applicationScope.launch { speech.release() }
     }
 
+    // --- search inside the book (M13) -----------------------------------------------------
+
+    private val bookSearch = BookSearch()
+
+    private val _searchState = MutableStateFlow<BookSearchState>(BookSearchState.Idle)
+    val searchState: StateFlow<BookSearchState> = _searchState
+
+    private var searchJob: Job? = null
+
+    /** True when this publication can be searched at all, so the UI can hide the button. */
+    val isSearchable: Boolean
+        get() = (_uiState.value as? ReaderUiState.Ready)
+            ?.let { bookSearch.isSearchable(it.publication) } ?: false
+
+    fun search(query: String) {
+        val state = _uiState.value as? ReaderUiState.Ready ?: return
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            _searchState.value = BookSearchState.Idle
+            bookSearch.reset()
+            return
+        }
+        searchJob = viewModelScope.launch {
+            _searchState.value = BookSearchState.Searching
+            _searchState.value = withContext(ioDispatcher) {
+                bookSearch.start(state.publication, query)
+            }
+        }
+    }
+
+    /** Pulls the next page; the list grows as it is scrolled. */
+    fun searchLoadMore() {
+        val current = _searchState.value as? BookSearchState.Results ?: return
+        if (!current.hasMore || current.loadingMore) return
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            _searchState.value = current.copy(loadingMore = true)
+            _searchState.value = withContext(ioDispatcher) { bookSearch.loadMore(current) }
+        }
+    }
+
+    fun clearSearch() {
+        searchJob?.cancel()
+        bookSearch.reset()
+        _searchState.value = BookSearchState.Idle
+    }
+
     fun updateSpeech(transform: (SpeechSettings) -> SpeechSettings) {
         viewModelScope.launch {
             settingsRepository.updateSpeech(transform)
@@ -387,6 +434,7 @@ class ReaderViewModel @Inject constructor(
     override fun onCleared() {
         // The publication owns open file handles. Closing outlives this ViewModel, so it
         // runs on the application scope — viewModelScope is already cancelled here.
+        bookSearch.reset()
         val id = bookId
         val now = System.currentTimeMillis()
         applicationScope.launch {

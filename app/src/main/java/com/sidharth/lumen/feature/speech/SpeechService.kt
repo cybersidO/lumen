@@ -8,6 +8,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.sidharth.lumen.MainActivity
@@ -31,6 +32,10 @@ import javax.inject.Inject
  * with it. Calling `startForeground` in `onCreate` makes the guarantee ours and is what
  * the 5-second rule expects anyway.
  */
+// MediaStyleNotificationHelper is still marked unstable by Media3. It is the documented
+// way to attach a session to its notification, and the alternative is hand-rolling the
+// media controls, so the opt-in is deliberate and scoped to this class.
+@androidx.annotation.OptIn(UnstableApi::class)
 @AndroidEntryPoint
 class SpeechService : MediaSessionService() {
 
