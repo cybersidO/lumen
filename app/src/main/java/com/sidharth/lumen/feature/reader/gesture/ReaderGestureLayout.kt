@@ -28,6 +28,19 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
     var settings: GestureSettings = GestureSettings.Defaults
     var isRtl: Boolean = false
 
+    /**
+     * Swallow horizontal drags instead of letting them reach Readium's pager.
+     *
+     * Set in scroll mode, where the pager moves a whole *chapter* at a time: a thumb
+     * scrolling down a page drifts sideways constantly, and each drift was jumping the
+     * reader out of the chapter they were reading. In paged mode this stays false,
+     * because there a horizontal swipe turning a page is exactly what it should do.
+     *
+     * Nothing is lost — the tap zones still call `goForward`/`goBackward`, auto-scroll
+     * still crosses chapters on its own, and the table of contents is unaffected.
+     */
+    var blockHorizontalSwipes: Boolean = false
+
     /** Supplied by the host; returns the brightness the drag should start from. */
     var currentBrightness: () -> Float = { 0.5f }
 
@@ -70,7 +83,7 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
             }
 
             MotionEvent.ACTION_MOVE -> {
-                if (gesture == DragGesture.NONE || sawMultiTouch) return false
+                if (sawMultiTouch) return false
                 if (axis == DragAxis.UNDECIDED) {
                     axis = GestureGeometry.decideAxis(
                         dx = event.x - startX,
@@ -78,6 +91,11 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
                         touchSlop = touchSlop,
                     )
                 }
+                // Claim a horizontal drag anywhere on the page when the pager would
+                // otherwise skip a chapter. Decided at the same moment as any other
+                // axis lock, so the pager never sees enough movement to begin.
+                if (blockHorizontalSwipes && axis == DragAxis.HORIZONTAL) return true
+                if (gesture == DragGesture.NONE) return false
                 // Take the gesture only once it is certainly vertical and inside a strip.
                 // Committing earlier would steal horizontal swipes; later would let the
                 // pager start moving first.
@@ -129,6 +147,8 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
                         return true
                     }
 
+                    // Either a tap being tracked, or a horizontal drag we are swallowing
+                    // so it cannot reach the pager.
                     DragGesture.NONE -> return true
                 }
             }

@@ -560,3 +560,17 @@ Over-achievement fills the ring and stops. A second lap, or a percentage climbin
 100, turns a quiet habit into a leaderboard, which is the opposite of what a reading app
 should do to reading. Default 20 minutes, and "Off" is a first-class choice in the
 picker — the ring disappears entirely and the hero keeps its sparkline.
+
+## 2026-10-04 — Horizontal swipes are swallowed in scroll mode
+In scroll mode Readium's pager moves a whole *chapter* per swipe, and a thumb scrolling
+down a page drifts sideways constantly — so the owner kept being thrown out of the chapter
+they were reading. The gesture layer now claims any horizontal drag while scrolling and
+never passes it to the pager; in paged mode it still passes straight through, because
+there a swipe turning a page is exactly right.
+
+Nothing is lost: the tap zones still call `goForward`/`goBackward`, auto-scroll still
+crosses chapters on its own, and the table of contents is untouched. The risk in a change
+like this is swallowing the vertical scroll along with it, so both halves are pinned by
+tests — including the real failure shape, a downward drag that wanders further sideways
+than it travels down — and checked on device: five horizontal swipes left the resource on
+`titlepage.xhtml`, while one vertical scroll redrew 1062 of 1700 screen rows.

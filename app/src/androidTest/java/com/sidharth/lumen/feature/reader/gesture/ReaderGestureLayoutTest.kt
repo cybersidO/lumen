@@ -147,6 +147,76 @@ class ReaderGestureLayoutTest {
         )
     }
 
+    // --- scroll mode: the pager must never see a sideways drift (1.5.1) ---------------
+
+    @Test
+    fun horizontalSwipeIsSwallowedInScrollMode() {
+        layout.blockHorizontalSwipes = true
+        dispatchStream(
+            listOf(
+                500f to 1200f,
+                600f to 1205f,
+                800f to 1210f,
+                900f to 1215f,
+            ),
+        )
+        assertEquals(
+            "the pager must not see a horizontal drag in scroll mode",
+            0,
+            child.received.count { it == MotionEvent.ACTION_MOVE },
+        )
+    }
+
+    @Test
+    fun aSidewaysDriftWhileScrollingDownIsStillSwallowed() {
+        layout.blockHorizontalSwipes = true
+        // The real failure: a thumb scrolling down that wanders sideways further than it
+        // travels vertically. Previously this jumped a whole chapter.
+        dispatchStream(
+            listOf(
+                500f to 1200f,
+                560f to 1180f,
+                680f to 1150f,
+                820f to 1120f,
+            ),
+        )
+        assertEquals(0, child.received.count { it == MotionEvent.ACTION_MOVE })
+    }
+
+    @Test
+    fun aMostlyVerticalScrollStillReachesThePageInScrollMode() {
+        layout.blockHorizontalSwipes = true
+        // Scrolling proper: the WebView must still get this, or the book cannot scroll.
+        dispatchStream(
+            listOf(
+                500f to 1600f,
+                505f to 1400f,
+                510f to 1100f,
+                515f to 800f,
+            ),
+        )
+        assertTrue(
+            "a vertical scroll must still reach the page",
+            child.received.count { it == MotionEvent.ACTION_MOVE } > 0,
+        )
+    }
+
+    @Test
+    fun pagedModeKeepsSwipeToTurn() {
+        layout.blockHorizontalSwipes = false
+        dispatchStream(
+            listOf(
+                500f to 1200f,
+                600f to 1205f,
+                800f to 1210f,
+            ),
+        )
+        assertTrue(
+            "swipe-to-turn must survive in paged mode",
+            child.received.count { it == MotionEvent.ACTION_MOVE } > 0,
+        )
+    }
+
     @Test
     fun centreDragsAreNeverIntercepted() {
         var brightnessTouched = false

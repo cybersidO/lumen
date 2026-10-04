@@ -19,6 +19,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M11 | Read-aloud (phone voices) + remembered-folder search → 1.3.0 | ☑ | 2026-10-04 · Piper deferred until the owner has heard the free voice |
 | M12 | Scroll by default, no volume paging, whole-phone search → 1.4.0 | ☑ | 2026-10-04 · Piper abandoned as impractical; better TTS engines signposted instead |
 | M13 | Search inside the book, full screen, daily goal ring → 1.5.0 | ☑ | 2026-10-04 · all three measured, not eyeballed |
+| M13.1 | No chapter-jumping swipes in scroll mode → 1.5.1 | ☑ | 2026-10-04 · reported by the owner; scrolling itself proved intact |
 
 ## Environment (this machine, 2026-08-01)
 
@@ -518,6 +519,27 @@ unnoticed. Kotlin's `@OptIn` does not satisfy Android lint; it wants
 whose text extraction Readium handles poorly would search poorly, and the "can't be
 searched" state exists but has not been seen. The goal ring was verified at 20% — met and
 over-met are covered by unit tests, not on screen.
+
+## M13.1 verification — 2026-10-04 (1.5.1)
+
+| Command | Result |
+|---|---|
+| `./gradlew test` | 158 tests, 0 failures |
+| `./gradlew connectedAndroidTest` | 65 tests, 0 failures (4 new) |
+| `./gradlew lint` | 0 errors |
+
+The owner reported that swiping to change chapter was buggy. In scroll mode it is: the
+pager moves a whole chapter per swipe, and scrolling down with a thumb drifts sideways
+enough to trigger it. Horizontal drags are now swallowed in scroll mode only.
+
+The danger was breaking scrolling itself while blocking the drift, so both were measured:
+
+- **Five horizontal swipes** left the resource on `titlepage.xhtml` and progress at
+  0.0000 — no chapter change.
+- **One vertical scroll** redrew **1062 of 1700** screen rows — scrolling is untouched.
+- Four new gesture tests cover it, including the real failure shape (a downward drag
+  wandering further sideways than it travels down) and `pagedModeKeepsSwipeToTurn`, so
+  the paged-mode behaviour cannot be lost by accident later.
 
 ## Open questions for the owner
 - **Install a better text-to-speech engine** — still the open one from 1.4.0. Read-aloud

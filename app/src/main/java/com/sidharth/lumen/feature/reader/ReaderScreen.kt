@@ -278,6 +278,9 @@ fun ReaderScreen(
                     gestureLayout?.apply {
                         this.settings = settings.gestures.sanitised()
                         this.isRtl = isRtl
+                        // Scroll mode pages by whole chapters, so an accidental sideways
+                        // drift while scrolling would jump the book. Paged mode keeps it.
+                        this.blockHorizontalSwipes = reading.pageFlow.isScroll
                         currentBrightness = { viewModel.brightnessSliderValue() }
                         onBrightnessChange = viewModel::onBrightnessDrag
                         onBrightnessDragEnd = viewModel::commitBrightness
