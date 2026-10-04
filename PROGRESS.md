@@ -16,7 +16,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M9 | Ship — signed release APK, R8 verified, README | ☑ | 2026-09-17 · EPUB-only; R8 build opened a book on the emulator |
 | M10 | Reading comforts, folder scan, stats, auto-scroll → 1.1.0 | ☑ | 2026-09-18 · every item verified by measurement, not by eye |
 | M10.1 | Two tabs; Home dashboard with heatmap, week/hour shape, pace, books, records → 1.2.0 | ☑ | 2026-09-18 · charts are Canvas; insights unit-tested incl. zone handling |
-| M11 | Read-aloud — Readium TTS + on-device Piper voice → 1.3.0 | ☐ | dependency (sherpa-onnx + voice) to be asked about first |
+| M11 | Read-aloud (phone voices) + remembered-folder search → 1.3.0 | ☑ | 2026-10-04 · Piper deferred until the owner has heard the free voice |
 
 ## Environment (this machine, 2026-08-01)
 
@@ -384,15 +384,68 @@ doubling the gap above the title; and "pages per hour" overflowed its KPI tile.
 
 Screenshots `60–62` in `docs/screenshots/m10/`.
 
+## M11 verification — 2026-10-04 (1.3.0)
+
+| Command | Result |
+|---|---|
+| `./gradlew test` | 150 tests, 0 failures (9 new) |
+| `./gradlew connectedAndroidTest` | 54 tests, 0 failures |
+| `./gradlew lint` | 0 errors; 2 deliberate warnings |
+
+**Read-aloud, on the phone's own voices.** Readium's `TtsNavigator` with its bundled
+`AndroidTtsEngine`; the sentence being spoken is tinted on the page and the page follows
+it. Speed, pitch, voice picker and a sleep timer. Verified on the emulator against
+*Hitchhiker's Guide*:
+
+- Google TTS synthesised with an **embedded (offline) voice** —
+  `TTS dispatch: en-us-x-iog-seanet-embedded` — and Readium's `AudioFocusManager` took
+  audio focus as `USAGE_MEDIA/CONTENT_TYPE_SPEECH`.
+- **Background playback proved by counting synthesis requests:** 2 in 20s with the reader
+  in front, then **3 more in 25s with the app backgrounded**, process still alive, service
+  still `isForeground=true types=0x2 (mediaPlayback)`.
+- The page visibly followed the voice from the cover into Chapter 1.
+
+**Permissions went from zero to three**, all for background audio, all recorded in
+DECISIONS.md and spelled out in the README. `INTERNET` is still absent; ExoPlayer's two
+are still stripped. Verified on the built APK: `FOREGROUND_SERVICE`,
+`FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `POST_NOTIFICATIONS`, and nothing else.
+
+**Book search is now remembered folders**, not a whole-phone sweep — the owner was offered
+`MANAGE_EXTERNAL_STORAGE` with its real cost and declined it. First search asks for a
+folder; every later one is a single tap across all remembered folders, de-duplicated.
+
+Screenshots in `docs/screenshots/m11/`.
+
+**Three defects found and fixed during verification:**
+- **Background playback silently didn't work.** `MediaSessionService` never reached the
+  foreground, because it only raises its notification once *its* player-state logic is
+  satisfied and Readium's TTS adapter doesn't drive it that way. Android killed the whole
+  process seconds after backgrounding — with no crash in the log, which is why only the
+  synthesis-request count caught it. Fixed by calling `startForeground` directly with a
+  MediaStyle notification.
+- **The voice picker listed 256 voices**, led by Arabic for an English novel and labelled
+  with engine ids. Now ranked by the book's language, labelled from the locale, with the
+  rest behind a toggle.
+- **A flaky theme test** was asserting selection immediately after a click, racing a
+  DataStore round-trip. It now waits for the state it expects.
+
+**Honest limits.** The emulator has no audible output here, so "it speaks" rests on the
+synthesis requests, the audio-focus grant and the AudioTrack players — not on hearing it.
+**Whether the voice is good enough is the open question**, and only the owner can answer
+it; that answer decides whether Piper is worth 72MB. The emulator also logged
+`AudioHardening background playback would be muted for com.google.android.tts`, an
+Android 16 behaviour aimed at background apps; our foreground service holds focus, but it
+has not been observed on real hardware.
+
 ## Open questions for the owner
-- **Try 1.1.0 on the phone** and report on: haptic strength (light tick on select, firmer on
-  save), whether volume-down-is-next feels right or should be flipped, and whether the
-  default auto-scroll speed is too slow. All three are one-line changes.
-- **Books live where?** The folder scan needs a subfolder — Android refuses `Download`
-  itself. If yours are loose in `Download`, moving them into `Download/Books` once makes
-  the scan and rescan work.
-- **M11 (read-aloud)** needs a yes on two new dependencies before it starts: `sherpa-onnx`
-  (Apache-2.0, ~15MB arm64 runtime) and one Piper voice (~60MB, licence to be confirmed).
-  The APK would grow from ~13MB to ~90MB.
-- PDF (`m8-pdf`) remains parked; the user chose to skip it.
-- The notes screen's date-range filter still has no picker UI.
+- **Listen to read-aloud and judge the voice.** That is the whole decision on Piper: if
+  your phone's voice is good enough, 1.3.0 is done and the APK stays ~13MB; if it is not,
+  swapping in Piper costs ~72MB and is a contained change behind the same interface. Try
+  the voice picker too — the emulator offered many English variants and some are much
+  better than others.
+- **Vertical scrolling already exists** (Aa → Page movement → Scroll). Say if you want it
+  to be the default for new books rather than page-turning.
+- Three permissions now, all for background audio. If you would rather have none, say so
+  and read-aloud becomes foreground-only again.
+- Still emulator-only; nothing in this milestone has been heard on a phone.
+- PDF (`m8-pdf`) remains parked. Notes' date-range filter still has no picker UI.

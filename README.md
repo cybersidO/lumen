@@ -11,10 +11,19 @@ app has no way to send it anywhere.
 These are things you can verify yourself from the installed app or the source, in that
 order of trust.
 
-- **Zero permissions.** Open *Settings → Apps → Lumen → Permissions* on the phone: the
-  list is empty. The app does not declare `INTERNET`, so the operating system will not
-  let it open a network connection at all — there is no setting to get wrong. Two
-  permissions that a library asked for (`ACCESS_NETWORK_STATE` and `WAKE_LOCK`, from the
+- **Three permissions, all for one feature.** `FOREGROUND_SERVICE`,
+  `FOREGROUND_SERVICE_MEDIA_PLAYBACK` and `POST_NOTIFICATIONS` exist so read-aloud can
+  keep playing once the screen is off, and so the lock screen can show play/pause.
+  Android allows background audio no other way. None of them grants access to files, the
+  network, the microphone or anything about you, and the notification permission is asked
+  for only when you first press Read aloud — decline it and speech still works while the
+  app is open. Before 1.3.0 the list was empty; if you don't want read-aloud, nothing
+  here is ever used.
+- **Still no `INTERNET`.** The app does not declare it, so the operating system will not
+  let Lumen open a network connection at all — there is no setting to get wrong.
+  Read-aloud is your phone's own speech synthesis; no text leaves the device, and voices
+  that would need the network are hidden from the picker because they could only fail.
+  Two permissions that a library asked for (`ACCESS_NETWORK_STATE` and `WAKE_LOCK`, from the
   audio player inside the EPUB engine, which Lumen never uses) are explicitly stripped in
   [`AndroidManifest.xml`](app/src/main/AndroidManifest.xml). For completeness: `aapt dump
   permissions` on the APK shows one entry, `com.sidharth.lumen.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`.
@@ -69,9 +78,13 @@ order of trust.
   and hours you actually read, your pace over recent sittings, time per book, and
   records. All local; it lives in the same database as everything else and rides along
   in your backup. The Library is the second tab.
-- **Find books in a folder** (1.1.0) — point Lumen at a folder once and it lists every
-  EPUB in it and its subfolders, ticked and ready to import. The ordinary picker is also
-  multi-select now.
+- **Read aloud** (1.3.0) — a speaker button in the reader. It uses the voices already on
+  your phone, highlights each sentence as it speaks and keeps the page in step, and has
+  speed, pitch, a voice picker and a sleep timer. It keeps playing with the screen off,
+  with play/pause on the lock screen.
+- **Find books on this phone** (1.3.0) — grant a folder once and Lumen remembers it;
+  after that the search button sweeps every remembered folder in one tap. Add more
+  folders any time. The ordinary picker is also multi-select.
 
 ### Not in this build
 
@@ -81,10 +94,15 @@ order of trust.
 
 ### Where to keep your books
 
-The folder scan asks Android for access to one folder. Android refuses to hand over
-`Download` itself, or the top of internal storage ("To protect your privacy, choose
-another folder") — so keep books in a **subfolder**, such as `Download/Books`. Anything
-inside it, however deep, is found.
+Lumen cannot search the whole phone, and that is deliberate: Android offers only one
+permission for it — "All files access" — which grants read/write to everything you own
+and cannot be narrowed to "just EPUBs". Instead, the search button asks for a folder the
+first time and then remembers it, so every later search is a single tap across every
+folder you've added.
+
+Android refuses to hand over `Download` itself, or the top of internal storage ("To
+protect your privacy, choose another folder") — so keep books in a **subfolder**, such as
+`Download/Books`. Anything inside it, however deep, is found.
 
 ## Install on your phone
 

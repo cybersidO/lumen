@@ -47,6 +47,7 @@ fun FolderScanSheet(
     onToggle: (android.net.Uri) -> Unit,
     onSelectAll: (Boolean) -> Unit,
     onImport: () -> Unit,
+    onAddFolder: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -65,6 +66,23 @@ fun FolderScanSheet(
         ) {
             when (state) {
                 ScanUiState.Idle -> Unit
+
+                ScanUiState.NeedsFolder -> {
+                    Text(
+                        text = stringResource(R.string.scan_needs_folder_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.scan_needs_folder_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = onAddFolder, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.scan_choose_folder))
+                    }
+                }
 
                 is ScanUiState.Scanning -> {
                     Text(
@@ -88,6 +106,9 @@ fun FolderScanSheet(
                             modifier = Modifier.padding(top = 8.dp),
                         )
                         Spacer(Modifier.height(16.dp))
+                        Button(onClick = onAddFolder, modifier = Modifier.fillMaxWidth()) {
+                            Text(stringResource(R.string.scan_add_another_folder))
+                        }
                         TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
                             Text(stringResource(R.string.nav_close))
                         }
@@ -123,7 +144,11 @@ fun FolderScanSheet(
                                 )
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(4.dp))
+                        TextButton(onClick = onAddFolder, modifier = Modifier.align(Alignment.Start)) {
+                            Text(stringResource(R.string.scan_add_another_folder))
+                        }
+                        Spacer(Modifier.height(4.dp))
                         Button(
                             onClick = onImport,
                             enabled = state.selected.isNotEmpty(),

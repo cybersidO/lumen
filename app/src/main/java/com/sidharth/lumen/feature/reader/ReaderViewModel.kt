@@ -20,6 +20,9 @@ import com.sidharth.lumen.feature.highlight.HighlightRepository
 import com.sidharth.lumen.feature.dictionary.LookupContext
 import com.sidharth.lumen.feature.dictionary.LookupRepository
 import com.sidharth.lumen.feature.dictionary.LookupUiState
+import com.sidharth.lumen.feature.speech.SpeechController
+import com.sidharth.lumen.feature.speech.SpeechUiState
+import com.sidharth.lumen.core.settings.SpeechSettings
 import com.sidharth.lumen.feature.stats.ReadingPace
 import com.sidharth.lumen.feature.stats.ReadingSessionRecorder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -88,6 +91,7 @@ class ReaderViewModel @Inject constructor(
     private val highlightRepository: HighlightRepository,
     private val lookupRepository: LookupRepository,
     private val sessionRecorder: ReadingSessionRecorder,
+    private val speech: SpeechController,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
@@ -235,6 +239,59 @@ class ReaderViewModel @Inject constructor(
 
     fun updateReading(transform: (ReadingSettings) -> ReadingSettings) {
         viewModelScope.launch { settingsRepository.updateReading(transform) }
+    }
+
+    // --- read-aloud (M11) -----------------------------------------------------------------
+
+    val speechState: StateFlow<SpeechUiState> = speech.state
+    val speechVoices = speech.voices
+
+    private val _speechRequested = MutableStateFlow(false)
+    /** True once the reader has asked for speech, so the UI can show its bar. */
+    val speechRequested: StateFlow<Boolean> = _speechRequested
+
+    /**
+     * Prepares and starts read-aloud from the current reading position, so the voice
+     * picks up where the eye left off rather than at the top of the chapter.
+     */
+    fun startSpeech(from: Locator?) {
+        val state = _uiState.value as? ReaderUiState.Ready ?: return
+        _speechRequested.value = true
+        viewModelScope.launch {
+            val ready = speech.prepare(
+                scope = applicationScope,
+                contentHash = state.contentHash,
+                publication = state.publication,
+                start = from,
+                settings = settings.value.speech,
+                onStopRequested = { stopSpeech() },
+            )
+            if (!ready) {
+                _speechRequested.value = false
+                return@launch
+            }
+            speech.applySettings(settings.value.speech)
+            speech.startSleepTimer(settings.value.speech.sleepTimerMinutes)
+            speech.play()
+        }
+    }
+
+    fun toggleSpeech() = speech.toggle()
+    fun speechNext() = speech.next()
+    fun speechPrevious() = speech.previous()
+
+    fun stopSpeech() {
+        _speechRequested.value = false
+        applicationScope.launch { speech.release() }
+    }
+
+    fun updateSpeech(transform: (SpeechSettings) -> SpeechSettings) {
+        viewModelScope.launch {
+            settingsRepository.updateSpeech(transform)
+            val updated = transform(settings.value.speech).sanitised()
+            speech.applySettings(updated)
+            speech.startSleepTimer(updated.sleepTimerMinutes)
+        }
     }
 
     fun toggleChrome() {

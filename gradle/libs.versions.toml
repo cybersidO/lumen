@@ -38,6 +38,9 @@ desugarJdkLibs = "2.1.5"
 room = "2.8.4"
 coil = "3.5.0"          # covers (approved 2026-08-01)
 readium = "3.3.0"
+# Already in the graph transitively via readium-navigator-media-tts; declared explicitly
+# because Hilt's KSP step must see MediaSessionService's supertype to accept the service.
+media3 = "1.10.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -75,6 +78,12 @@ androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugarJdkLibs" }
+
+# Read-aloud (M11). Same Readium version and licence (BSD-3), 0.2MB, declares no
+# permissions and no services of its own — it ships AndroidTtsEngine, which drives the
+# voices already installed on the phone. See DECISIONS.md.
+readium-navigator-media-tts = { module = "org.readium.kotlin-toolkit:readium-navigator-media-tts", version.ref = "readium" }
+media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
 
 readium-shared = { module = "org.readium.kotlin-toolkit:readium-shared", version.ref = "readium" }
 readium-streamer = { module = "org.readium.kotlin-toolkit:readium-streamer", version.ref = "readium" }

@@ -18,6 +18,8 @@ import org.readium.r2.navigator.epub.EpubNavigatorFactory
 import org.readium.r2.navigator.epub.EpubNavigatorFragment
 import org.readium.r2.navigator.epub.EpubPreferences
 import com.sidharth.lumen.core.database.HighlightEntity
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import com.sidharth.lumen.core.settings.HighlightStyle
 import com.sidharth.lumen.feature.highlight.HighlightColor
 import com.sidharth.lumen.feature.reader.gesture.ReaderGestureLayout
@@ -195,6 +197,29 @@ fun HighlightDecorations(
 }
 
 private const val DECORATION_GROUP = "lumen-highlights"
+private const val SPEECH_GROUP = "lumen-speech"
+
+/**
+ * Tints the sentence being read aloud (M11), in its own decoration group so it layers
+ * over the user's highlights instead of competing with them for the same group.
+ */
+@Composable
+fun SpeechDecoration(navigator: EpubNavigatorFragment?, locator: Locator?, tint: Color) {
+    val argb = tint.toArgb()
+    LaunchedEffect(navigator, locator, argb) {
+        val decorable = navigator as? DecorableNavigator ?: return@LaunchedEffect
+        val decorations = locator?.let {
+            listOf(
+                Decoration(
+                    id = "speech-current",
+                    locator = it,
+                    style = Decoration.Style.Highlight(tint = argb, isActive = false),
+                ),
+            )
+        }.orEmpty()
+        decorable.applyDecorations(decorations, group = SPEECH_GROUP)
+    }
+}
 
 /**
  * Mirrors the navigator's position into the ViewModel.

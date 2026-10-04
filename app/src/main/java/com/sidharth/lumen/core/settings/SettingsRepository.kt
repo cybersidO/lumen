@@ -32,7 +32,27 @@ class SettingsRepository @Inject constructor(
             gestures = prefs.readGestures(),
             brightness = prefs.readBrightness(),
             reading = prefs.readReading(),
+            speech = prefs.readSpeech(),
         )
+    }
+
+    private fun Preferences.readSpeech() = SpeechSettings(
+        speed = this[Keys.SpeechSpeed] ?: SpeechSettings.DEFAULT_SPEED,
+        pitch = this[Keys.SpeechPitch] ?: SpeechSettings.DEFAULT_PITCH,
+        voiceId = this[Keys.SpeechVoice],
+        sleepTimerMinutes = this[Keys.SleepTimer] ?: 0,
+        stopAtChapterEnd = this[Keys.StopAtChapterEnd] ?: false,
+    ).sanitised()
+
+    suspend fun updateSpeech(transform: (SpeechSettings) -> SpeechSettings) {
+        dataStore.edit { prefs ->
+            val updated = transform(prefs.readSpeech()).sanitised()
+            prefs[Keys.SpeechSpeed] = updated.speed
+            prefs[Keys.SpeechPitch] = updated.pitch
+            updated.voiceId?.let { prefs[Keys.SpeechVoice] = it } ?: prefs.remove(Keys.SpeechVoice)
+            prefs[Keys.SleepTimer] = updated.sleepTimerMinutes
+            prefs[Keys.StopAtChapterEnd] = updated.stopAtChapterEnd
+        }
     }
 
     private fun Preferences.readReading() = ReadingSettings(
@@ -154,5 +174,10 @@ class SettingsRepository @Inject constructor(
         val LockOrientation = booleanPreferencesKey("reading_lock_orientation")
         val ChapterTimeLeft = booleanPreferencesKey("reading_chapter_time_left")
         val AutoScrollSpeed = floatPreferencesKey("reading_auto_scroll_speed")
+        val SpeechSpeed = floatPreferencesKey("speech_speed")
+        val SpeechPitch = floatPreferencesKey("speech_pitch")
+        val SpeechVoice = stringPreferencesKey("speech_voice_id")
+        val SleepTimer = intPreferencesKey("speech_sleep_minutes")
+        val StopAtChapterEnd = booleanPreferencesKey("speech_stop_at_chapter_end")
     }
 }

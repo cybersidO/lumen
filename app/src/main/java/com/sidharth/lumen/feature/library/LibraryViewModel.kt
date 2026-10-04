@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sidharth.lumen.core.books.BookImporter
+import com.sidharth.lumen.core.books.BookFolderStore
 import com.sidharth.lumen.core.books.FolderScanner
 import com.sidharth.lumen.core.books.FoundBook
 import kotlinx.coroutines.Job
@@ -39,6 +40,8 @@ sealed interface ImportUiState {
 /** The folder-scan flow (M10): pick a folder → scanning → a list to tick → importing. */
 sealed interface ScanUiState {
     data object Idle : ScanUiState
+    /** No folders remembered yet — the first run asks for one. */
+    data object NeedsFolder : ScanUiState
     data class Scanning(val foldersSeen: Int) : ScanUiState
     data class Found(val books: List<FoundBook>, val selected: Set<Uri>) : ScanUiState
     data class Importing(val done: Int, val total: Int, val currentName: String) : ScanUiState
@@ -75,12 +78,17 @@ class LibraryViewModel @Inject constructor(
     private val repository: LibraryRepository,
     private val importer: BookImporter,
     private val scanner: FolderScanner,
+    private val folderStore: BookFolderStore,
     storage: BookStorage,
 ) : ViewModel() {
 
     private val _scanState = MutableStateFlow<ScanUiState>(ScanUiState.Idle)
     val scanState: StateFlow<ScanUiState> = _scanState
     private var scanJob: Job? = null
+
+    /** Folders the user has granted; shown in Settings and used by every rescan. */
+    val bookFolders = folderStore.folders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val query = MutableStateFlow("")
     private val sort = MutableStateFlow(LibrarySort.RECENT)
@@ -156,15 +164,51 @@ class LibraryViewModel @Inject constructor(
 
     // --- folder scan (M10) ---------------------------------------------------------------
 
-    fun scanFolder(treeUri: Uri) {
+    /**
+     * One-tap search: walks every remembered folder. Asks for a folder only the first
+     * time, or when every previous grant has gone stale.
+     */
+    fun searchRememberedFolders() {
         scanJob?.cancel()
         scanJob = viewModelScope.launch {
+            val folders = folderStore.current()
+            if (folders.isEmpty()) {
+                _scanState.value = ScanUiState.NeedsFolder
+                return@launch
+            }
             _scanState.value = ScanUiState.Scanning(0)
-            val books = runCatching {
-                scanner.scan(treeUri) { folders -> _scanState.value = ScanUiState.Scanning(folders) }
-            }.getOrElse { emptyList() }
-            _scanState.value = ScanUiState.Found(books, books.map { it.uri }.toSet())
+            var seen = 0
+            val found = buildList {
+                for (folder in folders) {
+                    val books = runCatching {
+                        scanner.scan(folder.uri) { n ->
+                            _scanState.value = ScanUiState.Scanning(seen + n)
+                        }
+                    }.getOrElse { emptyList() }
+                    seen += 1
+                    addAll(books)
+                }
+            }
+            // The same book can sit in two granted folders; show it once.
+            val unique = found.distinctBy { it.uri.toString() }
+            _scanState.value = ScanUiState.Found(unique, unique.map { it.uri }.toSet())
         }
+    }
+
+    /** Remembers a newly granted folder, then searches everything. */
+    fun addFolderAndSearch(treeUri: Uri) {
+        viewModelScope.launch {
+            if (!folderStore.add(treeUri)) {
+                _scanState.value = ScanUiState.Idle
+                postMessage { LibraryMessage.ImportFailed(it, FOLDER_REFUSED) }
+                return@launch
+            }
+            searchRememberedFolders()
+        }
+    }
+
+    fun forgetFolder(uri: Uri) {
+        viewModelScope.launch { folderStore.remove(uri) }
     }
 
     fun toggleFound(uri: Uri) {
@@ -237,6 +281,12 @@ class LibraryViewModel @Inject constructor(
 
     private fun postMessage(build: (id: Long) -> LibraryMessage) {
         _messages.value = build(System.nanoTime())
+    }
+
+    private companion object {
+        const val FOLDER_REFUSED =
+            "Android won't grant that folder — it refuses Download itself and the top of " +
+                "storage. Pick a subfolder, such as Download/Books."
     }
 }
 

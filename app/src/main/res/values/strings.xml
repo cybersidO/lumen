@@ -188,6 +188,31 @@
     <string name="reading_chapter_time">Show time left in chapter</string>
     <string name="reading_chapter_time_hint">Estimated from your own pace after a few page turns.</string>
 
+    <!-- M11: read-aloud -->
+    <string name="speech_start">Read aloud</string>
+    <string name="speech_play">Play</string>
+    <string name="speech_pause">Pause</string>
+    <string name="speech_next">Next sentence</string>
+    <string name="speech_previous">Previous sentence</string>
+    <string name="speech_settings">Voice settings</string>
+    <string name="speech_stop">Stop reading aloud</string>
+    <string name="speech_speed">Speed</string>
+    <string name="speech_pitch">Pitch</string>
+    <string name="speech_multiplier">%1$.2f×</string>
+    <string name="speech_voice">Voice</string>
+    <string name="speech_voice_hint">Only voices that work offline are listed — Lumen has no internet access.</string>
+    <string name="speech_voices_all">Show all languages (%1$d more)</string>
+    <string name="speech_voices_book_only">Only this book\'s language</string>
+    <string name="speech_no_voices">No offline voices are installed. Add one in Android Settings → System → Languages → Text-to-speech, then come back.</string>
+    <string name="speech_sleep_timer">Sleep timer</string>
+    <string name="speech_sleep_off">Off</string>
+    <string name="speech_sleep_minutes">%1$d min</string>
+    <string name="speech_timer_left">%1$d min</string>
+    <string name="speech_notification_title">Reading aloud</string>
+    <string name="speech_notification_text">Tap to go back to the book</string>
+    <string name="speech_channel_name">Read-aloud controls</string>
+    <string name="speech_channel_description">Lets read-aloud keep playing with the screen off, and puts play/pause on the lock screen. Lumen posts no other notifications.</string>
+
     <!-- M10: stats / Home tab -->
     <string name="tab_home">Home</string>
     <string name="tab_library">Library</string>
@@ -232,7 +257,11 @@
     </plurals>
 
     <!-- M10: folder scan -->
-    <string name="library_scan_folder">Find books in a folder</string>
+    <string name="library_scan_folder">Find books on this phone</string>
+    <string name="scan_needs_folder_title">Where do you keep your books?</string>
+    <string name="scan_needs_folder_body">Pick a folder once and Lumen remembers it — every search after this is a single tap. Android won\'t grant Download itself or the top of storage, so choose a subfolder such as Download/Books. You can add more folders later.</string>
+    <string name="scan_choose_folder">Choose a folder</string>
+    <string name="scan_add_another_folder">Search another folder too</string>
     <plurals name="scan_scanning">
         <item quantity="one">Looking through %d folder…</item>
         <item quantity="other">Looking through %d folders…</item>

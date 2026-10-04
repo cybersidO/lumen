@@ -20,8 +20,6 @@ import androidx.compose.material.icons.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.ui.platform.LocalContext
-import android.content.Intent
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -92,18 +90,11 @@ fun LibraryScreen(
 
     // "Find books": the user grants one folder, Lumen walks it (M10). Persisting the grant
     // is what lets a later rescan skip the picker.
-    val context = LocalContext.current
     val folderPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { treeUri ->
         treeUri ?: return@rememberLauncherForActivityResult
-        runCatching {
-            context.contentResolver.takePersistableUriPermission(
-                treeUri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
-        }
-        viewModel.scanFolder(treeUri)
+        viewModel.addFolderAndSearch(treeUri)
     }
     val scanState by viewModel.scanState.collectAsStateWithLifecycle()
 
@@ -127,7 +118,7 @@ fun LibraryScreen(
                 ),
                 actions = {
                     IconButton(
-                        onClick = { folderPicker.launch(null) },
+                        onClick = { viewModel.searchRememberedFolders() },
                         modifier = Modifier.testTag(LibraryScanButtonTag),
                     ) {
                         Icon(
@@ -227,6 +218,7 @@ fun LibraryScreen(
             onToggle = viewModel::toggleFound,
             onSelectAll = viewModel::selectAllFound,
             onImport = viewModel::importFound,
+            onAddFolder = { folderPicker.launch(null) },
             onDismiss = viewModel::dismissScan,
         )
     }

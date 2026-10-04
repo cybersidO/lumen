@@ -21,6 +21,20 @@
         android:name="android.permission.WAKE_LOCK"
         tools:node="remove" />
 
+    <!--
+      M11 read-aloud. These three exist for exactly one purpose: letting the voice keep
+      going with the screen off, and giving you lock-screen play/pause. Android does not
+      allow background audio without a foreground service, and from Android 13 a
+      foreground service must be able to post its notification.
+
+      None of them grants access to files, the network, the microphone or anything about
+      you. Lumen still declares no INTERNET permission, so read-aloud is local speech
+      synthesis and nothing leaves the phone. See README "Privacy".
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".LumenApplication"
         android:allowBackup="false"
@@ -43,6 +57,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Read-aloud's background playback (M11). Not exported: nothing outside Lumen
+             may start it. -->
+        <service
+            android:name=".feature.speech.SpeechService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

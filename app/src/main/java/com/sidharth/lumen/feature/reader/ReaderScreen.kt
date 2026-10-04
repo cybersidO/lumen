@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
@@ -50,6 +51,10 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
 import android.widget.Toast
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
@@ -75,6 +80,9 @@ import com.sidharth.lumen.feature.reader.gesture.GestureIndicator
 import com.sidharth.lumen.feature.reader.gesture.IndicatorSide
 import com.sidharth.lumen.feature.reader.gesture.ReaderGestureLayout
 import com.sidharth.lumen.feature.reader.gesture.TapAction
+import com.sidharth.lumen.feature.speech.SpeechBar
+import com.sidharth.lumen.feature.speech.SpeechSheet
+import com.sidharth.lumen.feature.speech.SpeechUiState
 import com.sidharth.lumen.feature.reader.input.Haptics
 import com.sidharth.lumen.feature.reader.input.VolumeKeyAction
 import com.sidharth.lumen.feature.reader.input.VolumeKeyDispatcher
@@ -86,6 +94,7 @@ const val ReaderTocButtonTag = "reader_toc_button"
 const val ReaderTypographyButtonTag = "reader_typography_button"
 const val ReaderSurfaceTag = "reader_surface"
 const val ReaderAutoScrollButtonTag = "reader_auto_scroll_button"
+const val ReaderReadAloudButtonTag = "reader_read_aloud_button"
 const val ReaderChapterTimeTag = "reader_chapter_time"
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -121,6 +130,24 @@ fun ReaderScreen(
                 }
                 val hostView = LocalView.current
                 var autoScroll by remember { mutableStateOf(AutoScrollState()) }
+                var showSpeechSheet by remember { mutableStateOf(false) }
+                // Android 13+ needs this granted before a foreground service may post the
+                // notification that carries the lock-screen controls. Asked for only when
+                // read-aloud is actually started, never on first launch; if it is declined
+                // speech still works, it just stops when the screen goes off.
+                val notificationPermission = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission(),
+                ) { /* granted or not, start playing either way */ }
+                fun beginReadAloud() {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                    viewModel.startSpeech(navigator?.currentLocator?.value)
+                    viewModel.hideChrome()
+                }
+                val speechState by viewModel.speechState.collectAsStateWithLifecycle()
+                val speechVoices by viewModel.speechVoices.collectAsStateWithLifecycle()
+                val speechActive = speechState is SpeechUiState.Active
                 // Leaving scroll mode ends auto-scroll; it has nothing to drive in pages.
                 LaunchedEffect(reading.pageFlow) {
                     if (!reading.pageFlow.isScroll) autoScroll = AutoScrollState()
@@ -192,6 +219,19 @@ fun ReaderScreen(
                     style = reading.highlightStyle,
                     onHighlightTapped = viewModel::openHighlightEditor,
                 )
+
+                // The sentence being spoken, tinted and followed down the page.
+                val speechLocator = (speechState as? SpeechUiState.Active)?.utteranceLocator
+                SpeechDecoration(
+                    navigator = navigator,
+                    locator = speechLocator,
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f),
+                )
+                // Keep the page with the voice, so listening with the screen on still
+                // shows the right text.
+                LaunchedEffect(speechLocator) {
+                    speechLocator?.let { navigator?.go(it, animated = false) }
+                }
 
                 // --- M10 comforts ------------------------------------------------------
                 ReaderVisibility(
@@ -307,6 +347,7 @@ fun ReaderScreen(
                     onBack = onBack,
                     onOpenToc = { showToc = true },
                     onOpenTypography = { showTypography = true },
+                    onStartReadAloud = if (!speechActive) ::beginReadAloud else null,
                     onStartAutoScroll = if (reading.pageFlow.isScroll && !autoScroll.active) {
                         {
                             autoScroll = AutoScrollState(active = true)
@@ -316,6 +357,32 @@ fun ReaderScreen(
                         null
                     },
                 )
+
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                    SpeechBar(
+                        state = speechState,
+                        onToggle = viewModel::toggleSpeech,
+                        onPrevious = viewModel::speechPrevious,
+                        onNext = viewModel::speechNext,
+                        onOpenSettings = { showSpeechSheet = true },
+                        onStop = viewModel::stopSpeech,
+                    )
+                }
+
+                if (showSpeechSheet) {
+                    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                    ModalBottomSheet(
+                        onDismissRequest = { showSpeechSheet = false },
+                        sheetState = sheetState,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ) {
+                        SpeechSheet(
+                            settings = settings.speech,
+                            voices = speechVoices,
+                            onChange = { updated -> viewModel.updateSpeech { updated } },
+                        )
+                    }
+                }
 
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                     AutoScrollBar(
@@ -489,6 +556,8 @@ private fun ReaderChrome(
     onBack: () -> Unit,
     onOpenToc: () -> Unit,
     onOpenTypography: () -> Unit,
+    /** Null while read-aloud is already running. */
+    onStartReadAloud: (() -> Unit)?,
     /** Null when auto-scroll is unavailable (paged mode) or already running. */
     onStartAutoScroll: (() -> Unit)?,
 ) {
@@ -512,6 +581,17 @@ private fun ReaderChrome(
                     }
                 },
                 actions = {
+                    if (onStartReadAloud != null) {
+                        IconButton(
+                            onClick = onStartReadAloud,
+                            modifier = Modifier.testTag(ReaderReadAloudButtonTag),
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.VolumeUp,
+                                contentDescription = stringResource(R.string.speech_start),
+                            )
+                        }
+                    }
                     if (onStartAutoScroll != null) {
                         IconButton(
                             onClick = onStartAutoScroll,

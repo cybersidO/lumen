@@ -443,3 +443,54 @@ and the calendar grid's edges. Charts follow one set of rules — magnitude as o
 light→dark, "the one that matters" (today, peak hour, top book) in the accent with the
 rest quiet, thin rounded marks with surface gaps, text in text colours, no legend for a
 single series, no dual axes.
+
+## 2026-10-04 — Read-aloud uses the phone's own voices first, not a bundled model
+The owner originally chose Piper, on the understanding that the free option meant poor
+quality. Three facts found when the work actually started changed the picture and were
+put back to them: Readium ships `AndroidTtsEngine` inside
+`readium-navigator-media-tts` (Maven Central, BSD-3, **0.2MB**, and it declares no
+permissions and no services of its own); sherpa-onnx is **not on Maven Central** — the
+Android build is a 47.8MB GitHub release AAR reachable only through JitPack, the registry
+that already gave this project TLS failures during the PDF work; and a Piper voice is
+~60MB, so the APK would go 12.5MB → ~85MB.
+
+Ruled: ship on the phone's voices, listen, and only then decide. The navigator, the
+playback UI, the sentence highlighting and the sleep timer are identical either way, so
+nothing is wasted if Piper is added later — it is a swap of `TtsEngineProvider` behind the
+same interface.
+
+## 2026-10-04 — Three permissions, bought for background playback only
+Android will not let audio continue once the reader is backgrounded without a foreground
+service, and from Android 13 that service must be able to post a notification. The owner
+chose background playback knowing the cost, so Lumen now declares `FOREGROUND_SERVICE`,
+`FOREGROUND_SERVICE_MEDIA_PLAYBACK` and `POST_NOTIFICATIONS`. `INTERNET` is still absent,
+ExoPlayer's two are still stripped, and the notification permission is requested at the
+moment read-aloud is first started rather than at launch. Declining it leaves speech
+working while the app is open.
+
+## 2026-10-04 — The service posts its own notification instead of trusting Media3
+`MediaSessionService` raises its notification only once its player reports playing through
+the paths it recognises, and Readium's `TtsSessionAdapter` does not drive those the way an
+ExoPlayer would. The result was a service that never reached the foreground: Android killed
+the whole process seconds after the reader was backgrounded, taking the voice with it, with
+no crash in the log. `startForeground` is now called directly in `onCreate` with a
+MediaStyle notification built from the session — which is what the five-second rule expects
+anyway. Verified by counting speech-synthesis requests: 2 in 20s foregrounded, then 3 more
+in 25s with the app backgrounded and the process still alive.
+
+## 2026-10-04 — Voices are ranked by the book's language, and network voices are hidden
+The emulator offered **256** voices. Listed raw they began with Arabic for an English
+novel, labelled with engine ids like `ar-xa-x-arc-local`, which reads as a broken feature.
+Voices for the book's own language now come first and are all that is shown by default,
+behind a "show all languages" toggle; labels are built from the locale's display name.
+Voices flagged `requiresNetwork` are dropped entirely — with no INTERNET permission they
+would produce silence, and offering them would be a promise Lumen cannot keep.
+
+## 2026-10-04 — Phone-wide book search was declined in favour of remembered folders
+The owner asked for a button that searches every file on the phone. That needs
+`MANAGE_EXTERNAL_STORAGE` ("All files access"), which cannot be scoped to one file type,
+is granted through a special Settings screen, and would replace the README's
+zero-permission claim with a far broader one. Offered with that cost stated plainly; the
+owner chose the alternative. `BookFolderStore` now persists every granted folder, so the
+first search asks once and every search after it is a single tap across all of them.
+Stale grants are dropped on read, so the list never offers a folder that would fail.
