@@ -313,6 +313,10 @@ fun ReaderScreen(
                         )
                     },
                     onAction = { action ->
+                        // A finger that travelled is not a tap, whatever Readium's own
+                        // threshold decided — this is what stopped scrolls turning pages.
+                        if (gestureLayout?.lastGestureWasDrag == true) return@ReaderTapListener
+
                         // A tap while auto-scrolling is a request to stop and look, not a
                         // page turn — the bar stays up so it can be resumed.
                         if (autoScroll.active && !autoScroll.paused) {
@@ -320,8 +324,23 @@ fun ReaderScreen(
                             return@ReaderTapListener
                         }
                         when (action) {
-                            TapAction.NEXT_PAGE -> navigator?.goForward(animated = true)
-                            TapAction.PREVIOUS_PAGE -> navigator?.goBackward(animated = true)
+                            // In scroll mode a "page" is one screenful, not a chapter:
+                            // goForward() there moves to the next *resource*, which is
+                            // why tapping used to jump whole chapters.
+                            TapAction.NEXT_PAGE ->
+                                if (reading.pageFlow.isScroll) {
+                                    scope.launch { navigator?.scrollByScreen(forward = true) }
+                                } else {
+                                    navigator?.goForward(animated = true)
+                                }
+
+                            TapAction.PREVIOUS_PAGE ->
+                                if (reading.pageFlow.isScroll) {
+                                    scope.launch { navigator?.scrollByScreen(forward = false) }
+                                } else {
+                                    navigator?.goBackward(animated = true)
+                                }
+
                             TapAction.TOGGLE_CHROME -> viewModel.toggleChrome()
                             TapAction.NONE -> Unit
                         }

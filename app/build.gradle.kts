@@ -46,8 +46,8 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
 
         // versionCode: MAJOR*10000 + MINOR*100 + PATCH. versionName mirrors it.
-        versionCode = 10501
-        versionName = "1.5.1"
+        versionCode = 10502
+        versionName = "1.5.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

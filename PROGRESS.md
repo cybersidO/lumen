@@ -20,6 +20,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M12 | Scroll by default, no volume paging, whole-phone search → 1.4.0 | ☑ | 2026-10-04 · Piper abandoned as impractical; better TTS engines signposted instead |
 | M13 | Search inside the book, full screen, daily goal ring → 1.5.0 | ☑ | 2026-10-04 · all three measured, not eyeballed |
 | M13.1 | No chapter-jumping swipes in scroll mode → 1.5.1 | ☑ | 2026-10-04 · reported by the owner; scrolling itself proved intact |
+| M13.2 | A drag is never a tap; taps scroll a screen, not a chapter → 1.5.2 | ☑ | 2026-10-04 · two faults behind one report |
 
 ## Environment (this machine, 2026-08-01)
 
@@ -540,6 +541,39 @@ The danger was breaking scrolling itself while blocking the drift, so both were 
 - Four new gesture tests cover it, including the real failure shape (a downward drag
   wandering further sideways than it travels down) and `pagedModeKeepsSwipeToTurn`, so
   the paged-mode behaviour cannot be lost by accident later.
+
+## M13.2 verification — 2026-10-04 (1.5.2)
+
+| Command | Result |
+|---|---|
+| `./gradlew test` | 158 tests, 0 failures |
+| `./gradlew connectedAndroidTest` | 69 tests, 0 failures (4 new) |
+| `./gradlew lint` | 0 errors |
+
+The owner reported that swiping up or down still turned the chapter. **Two separate
+faults**, both real:
+
+1. **Readium decides what counts as a tap**, and a short flick slips under its threshold —
+   so a scroll arrived as a tap. The gesture layer now reports whether the finger actually
+   travelled (`lastGestureWasDrag`) and the tap handler refuses to act on a drag.
+2. **`goForward()` in scroll mode advances a whole resource**, so every left/right tap
+   jumped a chapter by design. Scroll mode now moves ~90% of a screen and only changes
+   chapter when the end of the current one is already in view.
+
+Measured on device:
+
+| Gesture | Result |
+|---|---|
+| 6 full vertical swipes | resource unchanged (`split_003`) |
+| 6 short vertical flicks — the reported case | resource unchanged (`split_003`) |
+| 1 tap at the top of a chapter | scrolled one screen, **stayed** in `split_004` (1097/1700 rows redrawn) |
+| 1 tap at the bottom of a chapter | advanced to the next chapter, as it should |
+
+**Worth recording:** the first cut of the scroll-by-screen helper compared scroll positions
+*after* calling `scrollBy`. A smooth scroll has not moved by the next statement, so it
+reported "stuck" every time and would have re-created the exact bug it was fixing. Caught
+by reading the code back, not by the tests — which cover the tap/drag distinction, not the
+injected JavaScript. That gap is still there.
 
 ## Open questions for the owner
 - **Install a better text-to-speech engine** — still the open one from 1.4.0. Read-aloud

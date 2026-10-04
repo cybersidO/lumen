@@ -574,3 +574,30 @@ like this is swallowing the vertical scroll along with it, so both halves are pi
 tests — including the real failure shape, a downward drag that wanders further sideways
 than it travels down — and checked on device: five horizontal swipes left the resource on
 `titlepage.xhtml`, while one vertical scroll redrew 1062 of 1700 screen rows.
+
+## 2026-10-04 — A drag is never also a tap, and a tap in scroll mode moves a screen
+Two faults behind one complaint ("swiping up/down turns the chapter"), found by reading
+the code the report pointed at rather than guessing:
+
+**Readium decides for itself what a tap is, and a short flick slips under its threshold.**
+Our gesture layer already sees the whole touch stream whether or not it intercepts, so it
+now records whether the finger travelled past the touch slop and exposes
+`lastGestureWasDrag`. The tap handler checks it first, so a scroll can never also be a page
+turn — whatever the JS concluded.
+
+**`goForward()` in scroll mode advances a whole resource.** That is correct for paged
+mode, where a resource is laid out as pages, but in scroll mode it means every left/right
+tap jumped a chapter. Scroll mode now scrolls by ~90% of the viewport instead, and only
+falls through to `goForward()` when the end of the resource is genuinely in view — so
+reading still carries on into the next chapter rather than stopping dead at the bottom.
+
+The edge test is made *before* scrolling, not by comparing positions afterwards: a smooth
+scroll has not moved when the next statement runs, so an after-the-fact comparison reports
+"stuck" every time and would have re-created the very bug being fixed. That one was caught
+by reading the code back rather than by the tests, which is worth remembering — the tests
+cover the tap/drag distinction, not the JS.
+
+Verified on device: six full vertical swipes and six short flicks left the resource on
+`split_003`; a tap at the top of a chapter scrolled one screen (1097 of 1700 rows redrawn)
+and stayed in `split_004`; a tap at the bottom moved on to the next chapter, which is what
+it should do.

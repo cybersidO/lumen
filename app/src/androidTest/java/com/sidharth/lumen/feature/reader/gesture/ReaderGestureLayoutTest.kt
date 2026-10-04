@@ -217,6 +217,51 @@ class ReaderGestureLayoutTest {
         )
     }
 
+    // --- a drag is never also a tap (1.5.2) -------------------------------------------
+
+    @Test
+    fun aVerticalScrollIsReportedAsADragSoItCannotTurnAPage() {
+        dispatchStream(
+            listOf(
+                500f to 1700f,
+                505f to 1400f,
+                510f to 1000f,
+                515f to 700f,
+            ),
+        )
+        assertTrue(
+            "a scroll must be reported as a drag, or Readium's tap turns the page",
+            layout.lastGestureWasDrag,
+        )
+    }
+
+    @Test
+    fun aShortFlickStillCountsAsADrag() {
+        // The actual complaint: a quick little swipe slips under Readium's tap threshold.
+        dispatchStream(
+            listOf(
+                500f to 1200f,
+                500f to 1160f,
+                500f to 1100f,
+            ),
+        )
+        assertTrue("a short flick is still movement", layout.lastGestureWasDrag)
+    }
+
+    @Test
+    fun aStationaryTapIsNotADrag() {
+        dispatchStream(listOf(500f to 1200f, 501f to 1201f))
+        assertFalse("a real tap must still be a tap", layout.lastGestureWasDrag)
+    }
+
+    @Test
+    fun theDragFlagResetsForEachNewGesture() {
+        dispatchStream(listOf(500f to 1700f, 505f to 900f))
+        assertTrue(layout.lastGestureWasDrag)
+        dispatchStream(listOf(500f to 1200f, 501f to 1201f))
+        assertFalse("a tap after a scroll must not inherit the drag", layout.lastGestureWasDrag)
+    }
+
     @Test
     fun centreDragsAreNeverIntercepted() {
         var brightnessTouched = false

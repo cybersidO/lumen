@@ -67,6 +67,19 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
     /** Set when a second finger lands, so the gesture is not also treated as a tap. */
     private var sawMultiTouch = false
 
+    private var movedBeyondSlop = false
+
+    /**
+     * True when the gesture that just finished actually moved.
+     *
+     * Readium decides for itself what counts as a tap, and a short flick while scrolling
+     * slips under its threshold — which turned an ordinary scroll into a page turn. This
+     * layer sees the whole touch stream whether or not it intercepts, so it can answer
+     * the only question that matters: did the finger travel? The tap handler checks this
+     * before acting, so a drag is never also a tap.
+     */
+    val lastGestureWasDrag: Boolean get() = movedBeyondSlop
+
     init {
         // The layout must not draw or focus; it exists purely to observe touches.
         setWillNotDraw(true)
@@ -83,6 +96,11 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
             }
 
             MotionEvent.ACTION_MOVE -> {
+                if (!movedBeyondSlop &&
+                    (abs(event.x - startX) > touchSlop || abs(event.y - startY) > touchSlop)
+                ) {
+                    movedBeyondSlop = true
+                }
                 if (sawMultiTouch) return false
                 if (axis == DragAxis.UNDECIDED) {
                     axis = GestureGeometry.decideAxis(
@@ -193,6 +211,7 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
         startY = event.y
         downTime = event.eventTime
         axis = DragAxis.UNDECIDED
+        movedBeyondSlop = false
         sawMultiTouch = event.pointerCount >= 2
         zone = GestureGeometry.zoneFor(event.x, width.toFloat(), settings)
         gesture = GestureGeometry.dragGestureFor(zone, settings)

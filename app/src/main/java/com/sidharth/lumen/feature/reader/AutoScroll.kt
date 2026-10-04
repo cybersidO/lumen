@@ -80,6 +80,39 @@ fun AutoScrollDriver(
     }
 }
 
+/**
+ * Moves one screenful in scroll mode, the way a page turn should behave there.
+ *
+ * `goForward()` in scroll mode advances to the next *resource* — a whole chapter — so a
+ * tap meant to move down the page was jumping the book. When the end of the resource is
+ * already in view this does fall through to the navigator, so reading still carries on
+ * into the next chapter rather than stopping dead.
+ */
+suspend fun EpubNavigatorFragment.scrollByScreen(forward: Boolean) {
+    // Whether the edge is already reached is decided *before* scrolling, not by comparing
+    // positions afterwards: a smooth scroll has not moved yet when the next line runs, so
+    // an after-the-fact check reports "stuck" every time — and would jump a chapter on
+    // every tap, which is the bug this is here to fix.
+    val direction = if (forward) "1" else "-1"
+    val atEdge = evaluateJavascript(
+        """
+        (function() {
+          var el = document.scrollingElement || document.documentElement;
+          var dir = $direction;
+          var atEnd = (el.scrollTop + window.innerHeight) >= (el.scrollHeight - 2);
+          var atStart = el.scrollTop <= 2;
+          if ((dir > 0 && atEnd) || (dir < 0 && atStart)) return true;
+          el.scrollBy({ top: dir * window.innerHeight * 0.9, left: 0, behavior: 'smooth' });
+          return false;
+        })();
+        """.trimIndent(),
+    )
+    // Only when there is genuinely nothing left to scroll does the chapter change.
+    if (atEdge == "true") {
+        if (forward) goForward(animated = false) else goBackward(animated = false)
+    }
+}
+
 private const val BASE_PIXELS_PER_SECOND = 40f
 private const val TICK_MILLIS = 50L
 private const val END_OF_RESOURCE_PAUSE_MILLIS = 1200L
