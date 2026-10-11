@@ -259,3 +259,31 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         db.execSQL("CREATE INDEX index_reading_sessions_started_at ON reading_sessions(started_at)")
     }
 }
+
+/**
+ * v6 → v7 (M15): bookmarks. Purely additive, like v5 → v6 — nothing that holds a
+ * highlight, a note or a reading session is touched, so a failure here could only lose
+ * bookmarks that do not exist yet. Column order and types mirror Room's exported
+ * `7.json` so `MigrationTestHelper` can validate the result against the entity.
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE bookmarks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                book_content_hash TEXT NOT NULL,
+                locator_json TEXT NOT NULL,
+                resource_href TEXT NOT NULL,
+                page INTEGER,
+                chapter_title TEXT,
+                excerpt TEXT,
+                created_at INTEGER NOT NULL
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX index_bookmarks_book_content_hash ON bookmarks(book_content_hash)",
+        )
+    }
+}

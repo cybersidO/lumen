@@ -16,6 +16,8 @@ import com.sidharth.lumen.core.settings.SettingsRepository
 import com.sidharth.lumen.core.settings.ThemeMode
 import com.sidharth.lumen.feature.highlight.Highlight
 import com.sidharth.lumen.feature.highlight.HighlightColor
+import com.sidharth.lumen.feature.bookmark.Bookmark
+import com.sidharth.lumen.feature.bookmark.BookmarkRepository
 import com.sidharth.lumen.feature.highlight.HighlightRepository
 import com.sidharth.lumen.feature.dictionary.LookupContext
 import com.sidharth.lumen.feature.dictionary.LookupRepository
@@ -32,6 +34,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.SharingStarted
@@ -73,6 +76,8 @@ data class ReaderChromeState(
     val page: Int? = null,
     /** How long the book is, and how much of that is notes. Empty until positions load. */
     val pages: BookPages = BookPages.Empty,
+    /** Which resource is on screen; paired with [page] it identifies a bookmarked place. */
+    val resourceHref: String? = null,
 )
 
 enum class IndicatorKind { BRIGHTNESS, FONT_SIZE }
@@ -93,6 +98,7 @@ class ReaderViewModel @Inject constructor(
     private val publications: PublicationRepository,
     private val settingsRepository: SettingsRepository,
     private val highlightRepository: HighlightRepository,
+    private val bookmarkRepository: BookmarkRepository,
     private val lookupRepository: LookupRepository,
     private val sessionRecorder: ReadingSessionRecorder,
     private val speech: SpeechController,
@@ -204,6 +210,7 @@ class ReaderViewModel @Inject constructor(
             // Readium leaves the position out of some locators (a restore, a repagination);
             // the last real one is kept rather than blanking the readout mid-read.
             page = position ?: _chrome.value.page,
+            resourceHref = locator.href.toString(),
         )
         viewModelScope.launch(ioDispatcher) {
             bookDao.saveProgress(
@@ -277,6 +284,68 @@ class ReaderViewModel @Inject constructor(
 
     fun updateReading(transform: (ReadingSettings) -> ReadingSettings) {
         viewModelScope.launch { settingsRepository.updateReading(transform) }
+    }
+
+    // --- bookmarks and the way back (M15) -------------------------------------------------
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val bookmarks: StateFlow<List<Bookmark>> = uiState
+        .flatMapLatest { state ->
+            when (state) {
+                is ReaderUiState.Ready -> bookmarkRepository.observe(state.contentHash)
+                else -> flowOf(emptyList())
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Whether the page on screen is already saved — which is also what the button shows,
+     * so there is one answer rather than a button state and a database that can disagree.
+     */
+    val currentPageBookmarked: StateFlow<Boolean> = combine(bookmarks, chrome) { saved, where ->
+        saved.any { it.page == where.page && it.locator.href.toString() == where.resourceHref }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun toggleBookmark(locator: Locator?) {
+        val state = _uiState.value as? ReaderUiState.Ready ?: return
+        val where = locator ?: return
+        viewModelScope.launch {
+            bookmarkRepository.toggle(
+                bookContentHash = state.contentHash,
+                locator = where,
+                page = where.locations.position ?: _chrome.value.page,
+                chapterTitle = _chrome.value.chapterTitle,
+            )
+        }
+    }
+
+    fun deleteBookmark(id: Long) {
+        viewModelScope.launch { bookmarkRepository.delete(id) }
+    }
+
+    /** Where the reader was before a jump, so there is a way back from it. */
+    data class ReturnPoint(val locator: Locator, val page: Int?)
+
+    private val _returnPoint = MutableStateFlow<ReturnPoint?>(null)
+    val returnPoint: StateFlow<ReturnPoint?> = _returnPoint
+
+    /**
+     * Remembers the current place before jumping somewhere else.
+     *
+     * Only the *last* jump is kept. A stack sounds better and reads worse: after four
+     * hops through the notes nobody knows which "back" they are about to get, whereas one
+     * step always means "undo that jump".
+     */
+    fun rememberReturnPoint(from: Locator?) {
+        val locator = from ?: return
+        _returnPoint.value = ReturnPoint(
+            locator = locator,
+            page = locator.locations.position ?: _chrome.value.page,
+        )
+    }
+
+    fun clearReturnPoint() {
+        _returnPoint.value = null
     }
 
     // --- read-aloud (M11) -----------------------------------------------------------------

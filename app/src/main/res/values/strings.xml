@@ -50,6 +50,17 @@
     <string name="reader_page_total">%1$d pages · %2$d%%</string>
     <string name="reader_notes_split">%1$d pages of text, %2$d of notes</string>
     <string name="reader_back_to_library">Back to library</string>
+    <string name="bookmark_add">Save this place</string>
+    <string name="bookmark_remove">Remove this bookmark</string>
+    <string name="bookmark_delete">Delete bookmark</string>
+    <string name="bookmark_page">Page %1$d</string>
+    <string name="bookmark_saved_place">Saved place</string>
+    <string name="bookmarks_title">Bookmarks</string>
+    <string name="bookmarks_title_count">Bookmarks (%1$d)</string>
+    <string name="bookmarks_empty">No bookmarks in this book yet. The ribbon in the top bar saves the page you are on.</string>
+    <string name="reader_return_to_page">Back to page %1$d</string>
+    <string name="reader_return_back">Back to where I was</string>
+    <string name="reader_return_dismiss">Dismiss</string>
     <string name="reader_font">Font</string>
     <string name="reader_font_size">Size</string>
     <string name="reader_line_height">Line height</string>
@@ -124,6 +135,16 @@
     <string name="dictionary_no_browser">No browser is installed to open that.</string>
 
     <!-- Gesture settings -->
+    <string name="settings_diagnostics">Diagnostics</string>
+    <string name="settings_diagnostics_desc">Lumen sends nothing anywhere, so if it ever closes unexpectedly the only record is here on this phone.</string>
+    <string name="diagnostics_no_crashes">No crashes recorded.</string>
+    <string name="diagnostics_crashes">%1$d crash report(s) saved on this phone.</string>
+    <string name="diagnostics_view">View</string>
+    <string name="diagnostics_copy">Copy</string>
+    <string name="diagnostics_clear">Clear</string>
+    <string name="diagnostics_copied">Crash report copied.</string>
+    <string name="diagnostics_title">Crash reports</string>
+    <string name="diagnostics_close">Close</string>
     <string name="settings_gestures">Reading gestures</string>
     <string name="settings_gestures_desc">Every zone is adjustable; the diagram updates as you change them. Tap a zone to see what it does.</string>
     <string name="gesture_edge_width">Edge strip width</string>

@@ -15,8 +15,9 @@ import androidx.room.RoomDatabase
         NoteFts::class,
         ReviewItemEntity::class,
         ReadingSessionEntity::class,
+        BookmarkEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class LumenDatabase : RoomDatabase() {
@@ -28,11 +29,12 @@ abstract class LumenDatabase : RoomDatabase() {
     abstract fun notesDao(): NotesDao
     abstract fun reviewDao(): ReviewDao
     abstract fun readingSessionDao(): ReadingSessionDao
+    abstract fun bookmarkDao(): BookmarkDao
 
     companion object {
         const val NAME = "lumen.db"
 
         /** Kept in step with the @Database version; backups record it for compatibility. */
-        const val SCHEMA_VERSION = 6
+        const val SCHEMA_VERSION = 7
     }
 }

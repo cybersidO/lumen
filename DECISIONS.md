@@ -655,3 +655,60 @@ The hook that installs the page-length strategy has to be passed to
 `onCreatePublication` is never invoked on open — the page count stayed stubbornly on the
 compressed-length number until this moved to the call site, which a log line on the device
 proved rather than guessed.
+
+## 2026-10-11 — A chapter is no longer a dead end, and a jump is no longer one-way
+Three things the owner asked for after 1.6.0, and the first of them was a hole 1.6.0 left.
+
+**Keep scrolling at the end of a chapter and a ring fills; when it closes, the book moves
+on.** In scroll mode Readium lays each resource out separately, so the bottom of a chapter
+was a dead stop — verified on the device before building anything: fifteen further swipes
+at the end of chapter 3 left the position exactly where it was. Until 1.6.0 the side taps
+covered that gap. Turning them off closed the only way forward that did not involve the
+table of contents, which is precisely what the owner ran into. So the scroll itself now
+does it, in both directions: pull past the end for the next chapter, past the start for
+the previous one.
+
+The threshold is 120dp of continued travel — about a thumb's length — and the pull
+accumulates *across* gestures while the page stays at the edge, because the natural thing
+to do at the bottom of a chapter is several short flicks rather than one long drag. It is
+forgotten after a second and a half of stillness, so a half-finished pull never lies in
+wait. One crossing per finger, however far the drag goes: the first cut reset the tracker
+after a crossing, which re-armed it instantly and walked through **four** chapters on one
+long drag. A test caught that, which is the first time in this project that a test found
+something before the device did.
+
+Edge detection asks the page's own WebView whether it can still scroll, rather than asking
+JavaScript — synchronous, so it can answer inside a touch event. Readium keeps a WebView
+per resource in a pager, so the one covering the middle of the gesture layer is the one
+asked; the wrong one would report the wrong edge and cross a chapter early.
+
+A second fault surfaced while testing: the pull only worked when the WebView had consumed
+the touch. A drag beginning on blank margin goes through `onTouchEvent` instead of
+`onInterceptTouchEvent`, where the axis was never decided and the pull was never tracked —
+so the gesture silently depended on where the finger happened to land. Both paths now share
+the same two lines.
+
+**Bookmarks, and a way back from a jump.** The reader has a ribbon in the top bar that
+saves the page being read, and the contents sheet grew a second tab listing what was
+saved. They are a separate table rather than a highlight with no text: a highlight is about
+a passage and carries colour, note and tags, while a bookmark is only about a place.
+Because the backup copies the database wholesale, bookmarks are already included in it
+without any new code.
+
+Jumping to a chapter or a search hit used to be one-way — the place being read was simply
+gone. Each jump now remembers where it came from and offers "Back to page 129" for twelve
+seconds, with the same way back kept in the top bar for as long as there is one. Only the
+last jump is remembered: a stack sounds better and reads worse, because after four hops
+nobody knows which "back" they are about to get.
+
+**A crash log, on this phone only.** Lumen reports nothing to anyone and has no INTERNET
+permission, which has the quiet cost that a crash is invisible to the one person who could
+act on it. The stack trace now goes to the app's private storage — excluded from backup
+like everything else — and Settings → Diagnostics will show it, copy it, or clear it. The
+previous handler is always called afterwards: swallowing it would turn a crash into a
+freeze, which is worse than a crash. Verified by actually crashing the app with
+`adb shell am crash`: 838 bytes recorded, Android's own crash dialog still shown.
+
+The recording is deliberately plain — open, append, trim, close, every failure swallowed.
+It runs on a thread that is already dying, and a crash log that crashes while recording a
+crash would replace a useful stack trace with a useless one.

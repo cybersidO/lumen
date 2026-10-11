@@ -11,6 +11,8 @@ import com.sidharth.lumen.core.database.MIGRATION_2_3
 import com.sidharth.lumen.core.database.MIGRATION_3_4
 import com.sidharth.lumen.core.database.MIGRATION_4_5
 import com.sidharth.lumen.core.database.MIGRATION_5_6
+import com.sidharth.lumen.core.database.MIGRATION_6_7
+import com.sidharth.lumen.core.database.BookmarkDao
 import com.sidharth.lumen.core.database.ReadingSessionDao
 import com.sidharth.lumen.core.database.ReviewDao
 import com.sidharth.lumen.core.database.NotesDao
@@ -33,7 +35,14 @@ object DatabaseModule {
         Room.databaseBuilder(context, LumenDatabase::class.java, LumenDatabase.NAME)
             // No fallbackToDestructiveMigration, ever. Losing highlights silently on a
             // schema change is the one failure this app cannot have (§4).
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+            .addMigrations(
+                MIGRATION_1_2,
+                MIGRATION_2_3,
+                MIGRATION_3_4,
+                MIGRATION_4_5,
+                MIGRATION_5_6,
+                MIGRATION_6_7,
+            )
             .build()
 
     @Provides
@@ -61,4 +70,7 @@ object DatabaseModule {
     @Provides
     fun provideReadingSessionDao(database: LumenDatabase): ReadingSessionDao =
         database.readingSessionDao()
+
+    @Provides
+    fun provideBookmarkDao(database: LumenDatabase): BookmarkDao = database.bookmarkDao()
 }

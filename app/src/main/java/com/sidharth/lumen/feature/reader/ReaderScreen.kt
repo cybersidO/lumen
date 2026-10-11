@@ -20,7 +20,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FormatSize
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,6 +35,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -66,6 +72,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import com.sidharth.lumen.feature.bookmark.Bookmark
 import com.sidharth.lumen.feature.highlight.HighlightColor
 import com.sidharth.lumen.feature.highlight.HighlightEditSheet
 import com.sidharth.lumen.feature.highlight.SelectionToolbar
@@ -77,6 +84,7 @@ import com.sidharth.lumen.core.settings.ResolvedTheme
 import com.sidharth.lumen.feature.reader.gesture.ApplyWindowBrightness
 import com.sidharth.lumen.feature.reader.gesture.DimOverlay
 import com.sidharth.lumen.feature.reader.gesture.GestureGeometry
+import com.sidharth.lumen.feature.reader.gesture.ChapterPullIndicator
 import com.sidharth.lumen.feature.reader.gesture.GestureIndicator
 import com.sidharth.lumen.feature.reader.gesture.IndicatorSide
 import com.sidharth.lumen.feature.reader.gesture.ReaderGestureLayout
@@ -100,6 +108,12 @@ const val ReaderSearchButtonTag = "reader_search_button"
 const val ReaderChapterTimeTag = "reader_chapter_time"
 const val ReaderPageCountTag = "reader_page_count"
 const val ReaderNotesPagesTag = "reader_notes_pages"
+const val ReaderBookmarkButtonTag = "reader_bookmark_button"
+const val ReaderReturnPillTag = "reader_return_pill"
+const val ReaderBookmarksTabTag = "reader_bookmarks_tab"
+
+/** How long "Back to page 120" stays on screen before it stops being in the way. */
+private const val RETURN_PILL_MILLIS = 12_000L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -169,6 +183,11 @@ fun ReaderScreen(
                 }
 
                 var gestureLayout by remember { mutableStateOf<ReaderGestureLayout?>(null) }
+                var chapterPull by remember { mutableStateOf(0f) }
+                var chapterPullForward by remember { mutableStateOf(true) }
+                val bookmarks by viewModel.bookmarks.collectAsStateWithLifecycle()
+                val pageBookmarked by viewModel.currentPageBookmarked.collectAsStateWithLifecycle()
+                val returnPoint by viewModel.returnPoint.collectAsStateWithLifecycle()
 
                 val highlights by viewModel.highlights.collectAsStateWithLifecycle()
                 val activeSelection by viewModel.activeSelection.collectAsStateWithLifecycle()
@@ -283,6 +302,21 @@ fun ReaderScreen(
                         // Scroll mode pages by whole chapters, so an accidental sideways
                         // drift while scrolling would jump the book. Paged mode keeps it.
                         this.blockHorizontalSwipes = reading.pageFlow.isScroll
+                        // In scroll mode a chapter ends in a dead stop; the pull is the
+                        // only way onward now that the side taps are gone.
+                        this.chapterPullEnabled = reading.pageFlow.isScroll
+                        onChapterPull = { progress, forward ->
+                            chapterPull = progress
+                            chapterPullForward = forward
+                        }
+                        onChapterCross = { forward ->
+                            chapterPull = 0f
+                            if (forward) {
+                                navigator?.goForward(animated = true)
+                            } else {
+                                navigator?.goBackward(animated = true)
+                            }
+                        }
                         currentBrightness = { viewModel.brightnessSliderValue() }
                         onBrightnessChange = viewModel::onBrightnessDrag
                         onBrightnessDragEnd = viewModel::commitBrightness
@@ -356,6 +390,36 @@ fun ReaderScreen(
                 DimOverlay(alpha = effectiveBrightness.extraDim)
                 WarmTintOverlay(strength = reading.warmTint)
 
+                ChapterPullIndicator(progress = chapterPull, forward = chapterPullForward)
+
+                fun goBackToReturnPoint() {
+                    returnPoint?.let { point ->
+                        navigator?.go(point.locator, animated = false)
+                        viewModel.clearReturnPoint()
+                    }
+                }
+
+                // The pill shows itself for a few seconds after a jump and then gets out
+                // of the way; the top-bar icon keeps the way back for as long as there is
+                // one, so it is never lost, only quiet.
+                var returnPillVisible by remember { mutableStateOf(false) }
+                LaunchedEffect(returnPoint) {
+                    returnPillVisible = returnPoint != null
+                    if (returnPoint != null) {
+                        kotlinx.coroutines.delay(RETURN_PILL_MILLIS)
+                        returnPillVisible = false
+                    }
+                }
+                if (returnPillVisible) {
+                    returnPoint?.let { point ->
+                        ReturnPill(
+                            page = point.page,
+                            onReturn = { goBackToReturnPoint() },
+                            onDismiss = { returnPillVisible = false },
+                        )
+                    }
+                }
+
                 indicator?.let { ind ->
                     GestureIndicator(
                         visible = true,
@@ -382,6 +446,12 @@ fun ReaderScreen(
                     page = chrome.page,
                     pages = chrome.pages,
                     onBack = onBack,
+                    onReturnToPrevious = returnPoint?.let { { goBackToReturnPoint() } },
+                    bookmarked = pageBookmarked,
+                    onToggleBookmark = {
+                        Haptics.firm(hostView, reading.hapticsEnabled)
+                        viewModel.toggleBookmark(navigator?.currentLocator?.value)
+                    },
                     onOpenToc = { showToc = true },
                     onOpenTypography = { showTypography = true },
                     onSearch = if (viewModel.isSearchable) {
@@ -423,6 +493,7 @@ fun ReaderScreen(
                             onQueryChange = viewModel::search,
                             onLoadMore = viewModel::searchLoadMore,
                             onSelect = { hit ->
+                                viewModel.rememberReturnPoint(navigator?.currentLocator?.value)
                                 navigator?.go(hit.locator, animated = false)
                                 showSearch = false
                                 viewModel.clearSearch()
@@ -538,11 +609,20 @@ fun ReaderScreen(
         ) {
             TableOfContentsSheet(
                 entries = toc,
+                bookmarks = viewModel.bookmarks.collectAsStateWithLifecycle().value,
                 onSelect = { entry ->
+                    viewModel.rememberReturnPoint(navigator?.currentLocator?.value)
                     navigator?.go(entry.link, animated = false)
                     showToc = false
                     viewModel.hideChrome()
                 },
+                onSelectBookmark = { bookmark ->
+                    viewModel.rememberReturnPoint(navigator?.currentLocator?.value)
+                    navigator?.go(bookmark.locator, animated = false)
+                    showToc = false
+                    viewModel.hideChrome()
+                },
+                onDeleteBookmark = viewModel::deleteBookmark,
             )
         }
     }
@@ -616,6 +696,11 @@ private fun ReaderChrome(
     title: String,
     progressFraction: Float,
     chapterMinutesLeft: Int?,
+    /** Whether the page on screen is saved; drives the filled/outlined star. */
+    bookmarked: Boolean,
+    onToggleBookmark: () -> Unit,
+    /** Null when there is nowhere to go back to — no jump has been made. */
+    onReturnToPrevious: (() -> Unit)?,
     /** Current synthetic page; null until the first locator arrives. */
     page: Int?,
     /** Length of the book and its notes; [BookPages.Empty] until positions are computed. */
@@ -650,6 +735,34 @@ private fun ReaderChrome(
                     }
                 },
                 actions = {
+                    if (onReturnToPrevious != null) {
+                        IconButton(onClick = onReturnToPrevious) {
+                            Icon(
+                                imageVector = Icons.Outlined.History,
+                                contentDescription = stringResource(R.string.reader_return_back),
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = onToggleBookmark,
+                        modifier = Modifier.testTag(ReaderBookmarkButtonTag),
+                    ) {
+                        Icon(
+                            imageVector = if (bookmarked) {
+                                Icons.Outlined.Bookmark
+                            } else {
+                                Icons.Outlined.BookmarkBorder
+                            },
+                            contentDescription = stringResource(
+                                if (bookmarked) R.string.bookmark_remove else R.string.bookmark_add,
+                            ),
+                            tint = if (bookmarked) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        )
+                    }
                     if (onSearch != null) {
                         IconButton(
                             onClick = onSearch,
@@ -821,54 +934,182 @@ private fun ApplyPreferences(
 @Composable
 private fun TableOfContentsSheet(
     entries: List<TocEntry>,
+    bookmarks: List<Bookmark>,
     onSelect: (TocEntry) -> Unit,
+    onSelectBookmark: (Bookmark) -> Unit,
+    onDeleteBookmark: (Long) -> Unit,
 ) {
-    if (entries.isEmpty()) {
-        Text(
-            text = stringResource(R.string.reader_toc_empty),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(24.dp),
-        )
-        return
-    }
-
-    androidx.compose.foundation.lazy.LazyColumn(
-        modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-    ) {
-        item {
-            Text(
-                text = stringResource(R.string.reader_toc),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
+    // Two tabs rather than two sheets: both answer the same question — "where would I
+    // rather be than here" — and a reader looking for a saved place should not have to
+    // remember which button hid it.
+    var tab by remember { mutableStateOf(0) }
+    Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding()) {
+        TabRow(
+            selectedTabIndex = tab,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ) {
+            Tab(
+                selected = tab == 0,
+                onClick = { tab = 0 },
+                text = { Text(stringResource(R.string.reader_toc)) },
+            )
+            Tab(
+                selected = tab == 1,
+                onClick = { tab = 1 },
+                text = {
+                    Text(
+                        if (bookmarks.isEmpty()) {
+                            stringResource(R.string.bookmarks_title)
+                        } else {
+                            stringResource(R.string.bookmarks_title_count, bookmarks.size)
+                        },
+                    )
+                },
+                modifier = Modifier.testTag(ReaderBookmarksTabTag),
             )
         }
-        items(entries.size) { index ->
-            val entry = entries[index]
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onSelect(entry) }
-                    .padding(
-                        start = 24.dp + (entry.depth * 16).dp,
-                        end = 24.dp,
-                        top = 12.dp,
-                        bottom = 12.dp,
-                    ),
+
+        when {
+            tab == 0 && entries.isEmpty() ->
+                SheetEmptyMessage(stringResource(R.string.reader_toc_empty))
+
+            tab == 0 -> androidx.compose.foundation.lazy.LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(
-                    text = entry.title,
-                    style = if (entry.depth == 0) {
-                        MaterialTheme.typography.bodyLarge
-                    } else {
-                        MaterialTheme.typography.bodyMedium
-                    },
-                    color = if (entry.depth == 0) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                items(entries.size) { index ->
+                    val entry = entries[index]
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(entry) }
+                            .padding(
+                                start = 24.dp + (entry.depth * 16).dp,
+                                end = 24.dp,
+                                top = 12.dp,
+                                bottom = 12.dp,
+                            ),
+                    ) {
+                        Text(
+                            text = entry.title,
+                            style = if (entry.depth == 0) {
+                                MaterialTheme.typography.bodyLarge
+                            } else {
+                                MaterialTheme.typography.bodyMedium
+                            },
+                            color = if (entry.depth == 0) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+            }
+
+            bookmarks.isEmpty() -> SheetEmptyMessage(stringResource(R.string.bookmarks_empty))
+
+            else -> androidx.compose.foundation.lazy.LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                items(bookmarks.size) { index ->
+                    val bookmark = bookmarks[index]
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelectBookmark(bookmark) }
+                            .padding(start = 24.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                text = bookmarkHeading(bookmark),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            bookmark.excerpt?.let { excerpt ->
+                                Text(
+                                    text = excerpt,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                )
+                            }
+                        }
+                        IconButton(onClick = { onDeleteBookmark(bookmark.id) }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = stringResource(R.string.bookmark_delete),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** "Page 120 · Chapter Five", with whatever parts of that the locator knew. */
+@Composable
+private fun bookmarkHeading(bookmark: Bookmark): String {
+    val page = bookmark.page?.let { stringResource(R.string.bookmark_page, it) }
+    val chapter = bookmark.chapterTitle?.takeIf { it.isNotBlank() }
+    val heading = listOfNotNull(page, chapter).joinToString(" · ")
+    return heading.ifBlank { stringResource(R.string.bookmark_saved_place) }
+}
+
+@Composable
+private fun SheetEmptyMessage(message: String) {
+    Text(
+        text = message,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(24.dp),
+    )
+}
+
+/**
+ * "Back to page 120", for a few seconds after a jump.
+ *
+ * A jump to a chapter or a search hit used to be one-way: the place being read was simply
+ * gone, with nothing to return to but scrolling and luck.
+ */
+@Composable
+private fun ReturnPill(page: Int?, onReturn: () -> Unit, onDismiss: () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        Row(
+            modifier = Modifier
+                .navigationBarsPadding()
+                .padding(bottom = 32.dp)
+                .background(
+                    MaterialTheme.colorScheme.surfaceContainerHigh,
+                    androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                )
+                .clickable(onClick = onReturn)
+                .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
+                .testTag(ReaderReturnPillTag),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.History,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(end = 8.dp),
+            )
+            Text(
+                text = if (page != null) {
+                    stringResource(R.string.reader_return_to_page, page)
+                } else {
+                    stringResource(R.string.reader_return_back)
+                },
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = stringResource(R.string.reader_return_dismiss),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

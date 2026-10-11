@@ -2,9 +2,13 @@ package com.sidharth.lumen.feature.reader.gesture
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Rect
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewGroup
+import android.webkit.WebView
 import android.widget.FrameLayout
 import com.sidharth.lumen.core.settings.GestureSettings
 import kotlin.math.abs
@@ -41,6 +45,23 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
      */
     var blockHorizontalSwipes: Boolean = false
 
+    /**
+     * Whether a pull past the end of a chapter may cross into the next one.
+     *
+     * Scroll mode only: there a chapter is a dead end, because Readium lays each resource
+     * out separately and scrolling simply stops at the bottom. In paged mode the pager
+     * already handles it.
+     */
+    var chapterPullEnabled: Boolean = false
+
+    /**
+     * Lets a test stand in for the page's own scroll state.
+     *
+     * Production leaves this null and the layout finds the WebView itself; a test has no
+     * WebView to find, and the pull logic is worth covering without one.
+     */
+    var pageScrollProbe: ((direction: Int) -> Boolean)? = null
+
     /** Supplied by the host; returns the brightness the drag should start from. */
     var currentBrightness: () -> Float = { 0.5f }
 
@@ -49,6 +70,12 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
     var onFontSizeStep: (steps: Int) -> Unit = {}
     var onFontSizeDragEnd: () -> Unit = {}
     var onTwoFingerTap: () -> Unit = {}
+
+    /** Ring progress, 0f..1f, and which way the pull is heading. */
+    var onChapterPull: (progress: Float, forward: Boolean) -> Unit = { _, _ -> }
+
+    /** The ring filled: change chapter. */
+    var onChapterCross: (forward: Boolean) -> Unit = {}
 
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
     private val longPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
@@ -63,6 +90,25 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
 
     private var brightnessAtStart = 0.5f
     private var appliedFontSteps = 0
+
+    private val chapterPull = ChapterPullTracker(thresholdPx = CHAPTER_PULL_DP * density)
+    private var lastY = 0f
+    private var pullForward = true
+
+    /**
+     * One crossing per finger, however far the drag goes.
+     *
+     * Resetting the tracker after a crossing re-arms it instantly, and a single long drag
+     * then walks through four chapters — which is what the test caught. Lifting the
+     * finger is the only thing that clears this.
+     */
+    private var crossedInThisGesture = false
+
+    /** Clears the ring once the finger has been off for the tracker's forget window. */
+    private val forgetPull = Runnable {
+        chapterPull.reset()
+        onChapterPull(0f, pullForward)
+    }
 
     /** Set when a second finger lands, so the gesture is not also treated as a tap. */
     private var sawMultiTouch = false
@@ -102,18 +148,17 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
                     movedBeyondSlop = true
                 }
                 if (sawMultiTouch) return false
-                if (axis == DragAxis.UNDECIDED) {
-                    axis = GestureGeometry.decideAxis(
-                        dx = event.x - startX,
-                        dy = event.y - startY,
-                        touchSlop = touchSlop,
-                    )
-                }
+                decideAxisIfNeeded(event)
                 // Claim a horizontal drag anywhere on the page when the pager would
                 // otherwise skip a chapter. Decided at the same moment as any other
                 // axis lock, so the pager never sees enough movement to begin.
                 if (blockHorizontalSwipes && axis == DragAxis.HORIZONTAL) return true
-                if (gesture == DragGesture.NONE) return false
+                if (gesture == DragGesture.NONE) {
+                    // Not one of the edge-strip drags, so this is an ordinary scroll —
+                    // the only kind that can reach the end of a chapter.
+                    trackChapterPull(event)
+                    return false
+                }
                 // Take the gesture only once it is certainly vertical and inside a strip.
                 // Committing earlier would steal horizontal swipes; later would let the
                 // pager start moving first.
@@ -167,7 +212,14 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
 
                     // Either a tap being tracked, or a horizontal drag we are swallowing
                     // so it cannot reach the pager.
-                    DragGesture.NONE -> return true
+                    DragGesture.NONE -> {
+                        // Reached when no child consumed the DOWN — a drag that began on
+                        // blank margin. The pull has to work there too, or the gesture
+                        // silently depends on where the finger happened to land.
+                        decideAxisIfNeeded(event)
+                        trackChapterPull(event)
+                        return true
+                    }
                 }
             }
 
@@ -206,12 +258,100 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
         return super.dispatchTouchEvent(event)
     }
 
+    private fun decideAxisIfNeeded(event: MotionEvent) {
+        if (axis != DragAxis.UNDECIDED) return
+        axis = GestureGeometry.decideAxis(
+            dx = event.x - startX,
+            dy = event.y - startY,
+            touchSlop = touchSlop,
+        )
+    }
+
+    /**
+     * Accumulates a pull once the page itself has nothing left to scroll.
+     *
+     * The travel measured is between consecutive MOVE events, not from the touch-down:
+     * what matters is how far the finger has gone *since the edge was reached*, and the
+     * distance before that belongs to the scroll.
+     */
+    private fun trackChapterPull(event: MotionEvent) {
+        if (!chapterPullEnabled || axis != DragAxis.VERTICAL || crossedInThisGesture) return
+        val dy = event.y - lastY
+        lastY = event.y
+        if (dy == 0f) return
+        // Dragging the finger up pushes the page down, towards the next chapter.
+        val forward = dy < 0f
+        if (forward != pullForward) {
+            chapterPull.reset()
+            pullForward = forward
+        }
+        if (pageCanScroll(if (forward) 1 else -1)) {
+            // Still room on the page; this is a scroll, not a pull.
+            if (chapterPull.progress > 0f) {
+                chapterPull.reset()
+                onChapterPull(0f, forward)
+            }
+            return
+        }
+        removeCallbacks(forgetPull)
+        val crossed = chapterPull.pull(abs(dy), event.eventTime)
+        onChapterPull(chapterPull.progress, forward)
+        if (crossed) {
+            crossedInThisGesture = true
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            onChapterCross(forward)
+            chapterPull.reset()
+            onChapterPull(0f, forward)
+        }
+    }
+
+    /**
+     * Whether the page being read can still scroll [direction] (1 down, -1 up).
+     *
+     * Readium keeps a WebView per resource inside a pager, so "the page being read" is
+     * the one covering the middle of this layout — asking the wrong one would report the
+     * wrong edge and cross a chapter early.
+     */
+    private fun pageCanScroll(direction: Int): Boolean {
+        pageScrollProbe?.let { return it(direction) }
+        val page = activePage() ?: return true
+        return page.canScrollVertically(direction)
+    }
+
+    private fun activePage(): View? {
+        val own = Rect()
+        if (!getGlobalVisibleRect(own)) return null
+        var showing: View? = null
+        var covering: View? = null
+        val rect = Rect()
+        fun visit(view: View) {
+            if (view is WebView) {
+                if (view.isShown) {
+                    if (showing == null) showing = view
+                    if (view.getGlobalVisibleRect(rect) &&
+                        rect.contains(own.centerX(), own.centerY())
+                    ) {
+                        covering = view
+                    }
+                }
+                return
+            }
+            if (view is ViewGroup) {
+                for (i in 0 until view.childCount) visit(view.getChildAt(i))
+            }
+        }
+        visit(this)
+        return covering ?: showing
+    }
+
     private fun beginGesture(event: MotionEvent) {
         startX = event.x
         startY = event.y
+        lastY = event.y
         downTime = event.eventTime
         axis = DragAxis.UNDECIDED
         movedBeyondSlop = false
+        crossedInThisGesture = false
         sawMultiTouch = event.pointerCount >= 2
         zone = GestureGeometry.zoneFor(event.x, width.toFloat(), settings)
         gesture = GestureGeometry.dragGestureFor(zone, settings)
@@ -220,6 +360,11 @@ class ReaderGestureLayout(context: Context) : FrameLayout(context) {
     }
 
     private fun endDrag() {
+        // The ring stays up between two flicks at a chapter edge, then gives up.
+        if (chapterPull.progress > 0f) {
+            removeCallbacks(forgetPull)
+            postDelayed(forgetPull, ChapterPullTracker.DEFAULT_FORGET_MILLIS)
+        }
         when (gesture) {
             DragGesture.BRIGHTNESS -> onBrightnessDragEnd()
             DragGesture.FONT_SIZE -> onFontSizeDragEnd()

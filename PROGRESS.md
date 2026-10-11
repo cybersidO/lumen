@@ -22,6 +22,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M13.1 | No chapter-jumping swipes in scroll mode → 1.5.1 | ☑ | 2026-10-04 · reported by the owner; scrolling itself proved intact |
 | M13.2 | A drag is never a tap; taps scroll a screen, not a chapter → 1.5.2 | ☑ | 2026-10-04 · two faults behind one report |
 | M14 | Page counts incl. notes; side taps and edge drags off by default → 1.6.0 | ☑ | 2026-10-11 · a gesture does the one thing it looks like it does |
+| M15 | Pull past a chapter end to cross it; bookmarks; a way back; crash log → 1.7.0 | ☑ | 2026-10-11 · a test caught the four-chapter bug before the device did |
 
 ## Environment (this machine, 2026-08-01)
 
@@ -625,6 +626,55 @@ enough to have shipped unnoticed. Moving the hook to the `open` call fixed it. N
 tests this wiring: a future Readium upgrade could silently revert it, and only the
 displayed number would show.
 
+## M15 verification — 2026-10-11 (1.7.0)
+
+| Command | Result |
+|---|---|
+| `./gradlew test` | 184 tests, 0 failures (15 new) |
+| `./gradlew connectedAndroidTest` | 78 tests, 0 failures (7 new) |
+| `./gradlew lint` | 0 errors |
+
+**First, the hole 1.6.0 left.** Measured before writing anything: at the end of chapter 3
+of The Martian, fifteen further swipes left the position on `chapter03` unchanged. Scroll
+mode had no way onward but the table of contents once the side taps were off.
+
+The pull, measured on device:
+
+| Gesture | Before | After |
+|---|---|---|
+| 100px nudge at the top of chapter 7 | `chapter07`, 71 | `chapter07`, 71 — unchanged |
+| one sustained 1300px pull at the top | `chapter07`, 71 | **`chapter06`, 70** |
+| continued scrolling at the end of chapter 10 | `chapter10`, 110 | **`chapter11`, 128** |
+| 1200px drag mid-chapter | `chapter11`, 128 | `chapter11`, 129 — it just scrolled |
+
+**Bookmarks and the way back:**
+
+| Step | Result |
+|---|---|
+| ribbon tapped at page 129 | row in `bookmarks`: `1 \| 129 \| Chapter 11`; the button flipped to "Remove this bookmark" |
+| contents sheet | second tab reads `Bookmarks (1)`, listing `Page 129 · Chapter 11` |
+| jump to Chapter 2, then tap the pill | `chapter02`, 16 → pill offered `Back to page 129` → **`chapter11`, 129** |
+
+**The crash log**, verified by actually crashing the app (`adb shell am crash`):
+838 bytes written to private storage, holding the build, the Android version, the device
+and the thread; Android's own crash dialog still appeared, which is the proof that the
+previous handler is still being called rather than swallowed. Settings → Diagnostics then
+read "1 crash report(s) saved on this phone", showed the trace, and cleared it — after
+which the file was gone from disk.
+
+**Worth recording:** the first cut of the pull reset its tracker after a crossing, which
+re-armed it instantly and crossed **four** chapters on one long drag. An instrumented test
+caught it — the first time in this project a test found a fault before the device did. A
+second fault came out of the same run: the pull only worked when the WebView had consumed
+the touch, so a drag starting on blank margin did nothing. Both paths now share the same
+axis-and-pull code.
+
+**Known gap:** the bookmark excerpt is usually empty, because Readium's locator for a
+scroll position often carries no text. The list falls back to page and chapter, which is
+what the device showed. Nothing tests the WebView lookup that finds the page's own scroll
+state either — it is ten lines, and a Readium change to the pager's view tree would break
+it silently.
+
 ## Open questions for the owner
 - **Install a better text-to-speech engine** — still the open one from 1.4.0. Read-aloud
   sheet → "Open Android's text-to-speech settings". If a good engine still disappoints,
@@ -638,5 +688,7 @@ displayed number would show.
 - **Page counts are an estimate** (2 KB of markup per page) and are not the publisher's
   page numbers. "pages/hr" in stats is in these pages, so it does not line up with figures
   recorded before 1.6.0.
+- **Crossing a chapter is now a gesture, not a tap** — keep scrolling at the end of a
+  chapter (or above the start of one) until the ring fills.
 - Still emulator-only; nothing has been used on a phone.
 - PDF (`m8-pdf`) remains parked. Notes' date-range filter still has no picker UI.

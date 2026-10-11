@@ -291,6 +291,107 @@ class ReaderGestureLayoutTest {
         assertTrue(child.received.count { it == MotionEvent.ACTION_MOVE } > 0)
     }
 
+    // --- crossing a chapter by carrying on scrolling (1.7.0) ------------------------
+
+    @Test
+    fun pullingPastTheEndOfAChapterCrossesIntoTheNextOne() {
+        layout.chapterPullEnabled = true
+        // The page has nothing left to scroll downwards — the end of a chapter.
+        layout.pageScrollProbe = { direction -> direction < 0 }
+        var crossedForward: Boolean? = null
+        val ring = mutableListOf<Float>()
+        layout.onChapterCross = { forward -> crossedForward = forward }
+        layout.onChapterPull = { progress, _ -> ring += progress }
+
+        // One long upward drag: 900px, well past the 120dp threshold.
+        dispatchStream(listOf(500f to 1700f, 500f to 1400f, 500f to 1100f, 500f to 800f))
+
+        assertEquals(true, crossedForward)
+        assertTrue("the ring must fill on the way, not jump to full", ring.any { it in 0.01f..0.99f })
+    }
+
+    @Test
+    fun pullingAtTheStartOfAChapterGoesBack() {
+        layout.chapterPullEnabled = true
+        layout.pageScrollProbe = { direction -> direction > 0 }  // nothing above
+        var crossedForward: Boolean? = null
+        layout.onChapterCross = { forward -> crossedForward = forward }
+
+        dispatchStream(listOf(500f to 700f, 500f to 1000f, 500f to 1300f, 500f to 1600f))
+
+        assertEquals(false, crossedForward)
+    }
+
+    @Test
+    fun scrollingInsideAChapterNeverCrossesIt() {
+        layout.chapterPullEnabled = true
+        layout.pageScrollProbe = { true }   // the page can still scroll either way
+        var crossed = false
+        layout.onChapterCross = { crossed = true }
+
+        dispatchStream(listOf(500f to 1700f, 500f to 1200f, 500f to 700f, 500f to 200f))
+
+        assertFalse("mid-chapter scrolling must be nothing but scrolling", crossed)
+        assertTrue(child.received.count { it == MotionEvent.ACTION_MOVE } > 0)
+    }
+
+    @Test
+    fun aShortNudgeAtTheEndOfAChapterIsNotEnough() {
+        layout.chapterPullEnabled = true
+        layout.pageScrollProbe = { direction -> direction < 0 }
+        var crossed = false
+        var lastRing = 0f
+        layout.onChapterCross = { crossed = true }
+        layout.onChapterPull = { progress, _ -> lastRing = progress }
+
+        // 40px: reaching the last line of a chapter must not throw you out of it.
+        dispatchStream(listOf(500f to 1200f, 500f to 1180f, 500f to 1160f))
+
+        assertFalse("the chapter must not turn on a nudge", crossed)
+        assertTrue("but the ring should have started to show", lastRing > 0f)
+    }
+
+    @Test
+    fun theChapterCrossesOnceHoweverFarThePullGoes() {
+        layout.chapterPullEnabled = true
+        layout.pageScrollProbe = { direction -> direction < 0 }
+        var crossings = 0
+        layout.onChapterCross = { crossings++ }
+
+        // Starts on the very bottom edge, where no child consumes the touch — the
+        // blank-margin path, which took a fix of its own to track the pull at all.
+        dispatchStream(
+            listOf(500f to 2000f, 500f to 1500f, 500f to 1000f, 500f to 500f, 500f to 100f),
+        )
+
+        assertEquals("a long pull must not skip several chapters", 1, crossings)
+    }
+
+    @Test
+    fun liftingTheFingerIsWhatAllowsTheNextCrossing() {
+        layout.chapterPullEnabled = true
+        layout.pageScrollProbe = { direction -> direction < 0 }
+        var crossings = 0
+        layout.onChapterCross = { crossings++ }
+
+        dispatchStream(listOf(500f to 1700f, 500f to 1100f, 500f to 500f))
+        assertEquals(1, crossings)
+        dispatchStream(listOf(500f to 1700f, 500f to 1100f, 500f to 500f))
+        assertEquals("a second deliberate pull should cross again", 2, crossings)
+    }
+
+    @Test
+    fun thePullIsOffInPagedMode() {
+        layout.chapterPullEnabled = false
+        layout.pageScrollProbe = { false }
+        var crossed = false
+        layout.onChapterCross = { crossed = true }
+
+        dispatchStream(listOf(500f to 1700f, 500f to 1100f, 500f to 500f))
+
+        assertFalse("paged mode has its own pager; the pull would fight it", crossed)
+    }
+
     // --- what the app does out of the box (1.6.0) ----------------------------------
 
     @Test

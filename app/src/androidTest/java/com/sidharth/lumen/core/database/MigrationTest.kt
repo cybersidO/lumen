@@ -156,6 +156,7 @@ class MigrationTest {
             MIGRATION_3_4,
             MIGRATION_4_5,
             MIGRATION_5_6,
+            MIGRATION_6_7,
         )
 
         db.query("SELECT * FROM highlights").use { cursor ->
@@ -179,6 +180,22 @@ class MigrationTest {
             val match = QuoteFinder.find(document, cursor.getString(0), cursor.getString(1), cursor.getString(2))
             assertEquals("breast in an effort", match?.let { document.substring(it.start, it.end) })
             assertTrue(match!!.contextMatched)
+        }
+
+        // Bookmarks arrived in v7; the chain must leave a table that actually accepts one.
+        db.execSQL(
+            """
+            INSERT INTO bookmarks
+                (book_content_hash, locator_json, resource_href, page, chapter_title,
+                 excerpt, created_at)
+            VALUES ('hash-chain', '{}', '/OEBPS/ch4.xhtml', 42, 'Chapter Four', 'the vile wind', 777)
+            """.trimIndent(),
+        )
+        db.query("SELECT page, chapter_title FROM bookmarks").use { cursor ->
+            assertEquals(1, cursor.count)
+            cursor.moveToFirst()
+            assertEquals(42, cursor.getInt(0))
+            assertEquals("Chapter Four", cursor.getString(1))
         }
 
         // The FTS index arrived in v4 and must have been rebuilt from the existing row.
