@@ -146,16 +146,19 @@ fun SettingsScreen(
 
             GestureToggleRow(
                 label = stringResource(R.string.gesture_brightness_toggle),
+                hint = stringResource(R.string.gesture_brightness_hint),
                 checked = settings.gestures.brightnessDragEnabled,
                 onChange = { v -> viewModel.updateGestures { it.copy(brightnessDragEnabled = v) } },
             )
             GestureToggleRow(
                 label = stringResource(R.string.gesture_font_size_toggle),
+                hint = stringResource(R.string.gesture_font_size_hint),
                 checked = settings.gestures.fontSizeDragEnabled,
                 onChange = { v -> viewModel.updateGestures { it.copy(fontSizeDragEnabled = v) } },
             )
             GestureToggleRow(
                 label = stringResource(R.string.gesture_tap_turn_toggle),
+                hint = stringResource(R.string.gesture_tap_turn_hint),
                 checked = settings.gestures.tapToTurnPageEnabled,
                 onChange = { v -> viewModel.updateGestures { it.copy(tapToTurnPageEnabled = v) } },
             )

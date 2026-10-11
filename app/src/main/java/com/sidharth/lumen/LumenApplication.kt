@@ -17,8 +17,12 @@ class LumenApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Two defaults changed in 1.4.0. Applied here rather than at the first read so an
-        // existing install gets them once, before any screen has shown the old values.
-        scope.launch { settings.applyReadingDefaultsV2() }
+        // Defaults changed in 1.4.0 and again in 1.6.0. Applied here rather than at the
+        // first read so an existing install gets them once, before any screen has shown
+        // the old values.
+        scope.launch {
+            settings.applyReadingDefaultsV2()
+            settings.applyGestureDefaultsV3()
+        }
     }
 }

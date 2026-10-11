@@ -89,6 +89,26 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    /**
+     * One-time correction of the three gesture defaults turned off in 1.6.0 — brightness
+     * drag, font-size drag and tap-to-turn.
+     *
+     * Same reason as [applyReadingDefaultsV2]: `updateGestures` writes every key at once,
+     * so anyone who has ever touched a gesture setting already has the old `true` values
+     * on disk and a changed default would never reach them. This rewrites exactly those
+     * three, once, and records that it ran — so a reader who deliberately turns one back
+     * on keeps it.
+     */
+    suspend fun applyGestureDefaultsV3() {
+        dataStore.edit { prefs ->
+            if (prefs[Keys.GestureDefaultsV3] == true) return@edit
+            prefs[Keys.GestureDefaultsV3] = true
+            prefs[Keys.BrightnessDrag] = false
+            prefs[Keys.FontSizeDrag] = false
+            prefs[Keys.TapToTurn] = false
+        }
+    }
+
     suspend fun updateReading(transform: (ReadingSettings) -> ReadingSettings) {
         dataStore.edit { prefs ->
             val updated = transform(prefs.readReading()).sanitised()
@@ -110,9 +130,12 @@ class SettingsRepository @Inject constructor(
     private fun Preferences.readGestures() = GestureSettings(
         edgeStripFraction = this[Keys.EdgeStrip] ?: GestureSettings.DEFAULT_EDGE_STRIP,
         tapZoneFraction = this[Keys.TapZone] ?: GestureSettings.DEFAULT_TAP_ZONE,
-        brightnessDragEnabled = this[Keys.BrightnessDrag] ?: true,
-        fontSizeDragEnabled = this[Keys.FontSizeDrag] ?: true,
-        tapToTurnPageEnabled = this[Keys.TapToTurn] ?: true,
+        brightnessDragEnabled = this[Keys.BrightnessDrag]
+            ?: GestureSettings.Defaults.brightnessDragEnabled,
+        fontSizeDragEnabled = this[Keys.FontSizeDrag]
+            ?: GestureSettings.Defaults.fontSizeDragEnabled,
+        tapToTurnPageEnabled = this[Keys.TapToTurn]
+            ?: GestureSettings.Defaults.tapToTurnPageEnabled,
         twoFingerTapThemeEnabled = this[Keys.TwoFingerTheme] ?: false,
     ).sanitised()
 
@@ -204,5 +227,6 @@ class SettingsRepository @Inject constructor(
         val FullScreen = booleanPreferencesKey("reading_full_screen")
         val DailyGoal = intPreferencesKey("reading_daily_goal_minutes")
         val ReadingDefaultsV2 = booleanPreferencesKey("reading_defaults_v2_applied")
+        val GestureDefaultsV3 = booleanPreferencesKey("gesture_defaults_v3_applied")
     }
 }

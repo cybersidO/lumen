@@ -11,9 +11,19 @@ data class GestureSettings(
     val edgeStripFraction: Float = DEFAULT_EDGE_STRIP,
     val tapZoneFraction: Float = DEFAULT_TAP_ZONE,
 
-    val brightnessDragEnabled: Boolean = true,
-    val fontSizeDragEnabled: Boolean = true,
-    val tapToTurnPageEnabled: Boolean = true,
+    /**
+     * All three off by default since 1.6.0.
+     *
+     * The owner's verdict after living with them: a swipe up or down should scroll and do
+     * nothing else. Each of these took over a vertical drag — brightness on the left
+     * fifteen percent, font size on the right — or turned the page from a tap near an
+     * edge, and all three fired by accident far more often than on purpose. They remain
+     * switchable in Settings for anyone who wants them back; they are simply no longer
+     * what the app does out of the box.
+     */
+    val brightnessDragEnabled: Boolean = false,
+    val fontSizeDragEnabled: Boolean = false,
+    val tapToTurnPageEnabled: Boolean = false,
     val twoFingerTapThemeEnabled: Boolean = false,
 ) {
     companion object {

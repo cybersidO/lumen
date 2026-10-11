@@ -7,6 +7,17 @@ import org.junit.Test
 class GestureGeometryTest {
 
     private val defaults = GestureSettings.Defaults
+
+    /**
+     * The shipped defaults turn all three gestures off (1.6.0), so the tests that cover
+     * the *mechanism* have to ask for them explicitly. The tests below named after the
+     * defaults are the ones that pin the shipped behaviour.
+     */
+    private val allEnabled = GestureSettings.Defaults.copy(
+        brightnessDragEnabled = true,
+        fontSizeDragEnabled = true,
+        tapToTurnPageEnabled = true,
+    )
     private val width = 1000f
 
     // --- zones ---------------------------------------------------------------------
@@ -44,15 +55,15 @@ class GestureGeometryTest {
     fun `taps map left-previous right-next in LTR`() {
         assertEquals(
             TapAction.PREVIOUS_PAGE,
-            GestureGeometry.tapActionFor(TouchZone.LEFT_TAP, defaults, isRtl = false),
+            GestureGeometry.tapActionFor(TouchZone.LEFT_TAP, allEnabled, isRtl = false),
         )
         assertEquals(
             TapAction.NEXT_PAGE,
-            GestureGeometry.tapActionFor(TouchZone.RIGHT_TAP, defaults, isRtl = false),
+            GestureGeometry.tapActionFor(TouchZone.RIGHT_TAP, allEnabled, isRtl = false),
         )
         assertEquals(
             TapAction.TOGGLE_CHROME,
-            GestureGeometry.tapActionFor(TouchZone.CENTRE_TAP, defaults, isRtl = false),
+            GestureGeometry.tapActionFor(TouchZone.CENTRE_TAP, allEnabled, isRtl = false),
         )
     }
 
@@ -61,29 +72,48 @@ class GestureGeometryTest {
     fun `taps invert in RTL`() {
         assertEquals(
             TapAction.NEXT_PAGE,
-            GestureGeometry.tapActionFor(TouchZone.LEFT_TAP, defaults, isRtl = true),
+            GestureGeometry.tapActionFor(TouchZone.LEFT_TAP, allEnabled, isRtl = true),
         )
         assertEquals(
             TapAction.PREVIOUS_PAGE,
-            GestureGeometry.tapActionFor(TouchZone.RIGHT_TAP, defaults, isRtl = true),
+            GestureGeometry.tapActionFor(TouchZone.RIGHT_TAP, allEnabled, isRtl = true),
         )
         // The centre is direction-neutral.
         assertEquals(
             TapAction.TOGGLE_CHROME,
-            GestureGeometry.tapActionFor(TouchZone.CENTRE_TAP, defaults, isRtl = true),
+            GestureGeometry.tapActionFor(TouchZone.CENTRE_TAP, allEnabled, isRtl = true),
         )
     }
 
+    /**
+     * The 1.6.0 request, in one test: no tap anywhere may change the chapter.
+     *
+     * Every zone toggles the chrome instead of going dead — a tap that does nothing reads
+     * as the app ignoring you.
+     */
     @Test
-    fun `disabling tap-to-turn leaves only the chrome toggle`() {
-        val disabled = defaults.copy(tapToTurnPageEnabled = false)
+    fun `with tap-to-turn off every zone only shows the bars`() {
+        TouchZone.entries.forEach { zone ->
+            listOf(false, true).forEach { rtl ->
+                assertEquals(
+                    "$zone, rtl=$rtl",
+                    TapAction.TOGGLE_CHROME,
+                    GestureGeometry.tapActionFor(zone, defaults, isRtl = rtl),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `the shipped defaults turn page-turning and both edge drags off`() {
+        assertEquals(false, defaults.tapToTurnPageEnabled)
         assertEquals(
-            TapAction.NONE,
-            GestureGeometry.tapActionFor(TouchZone.LEFT_TAP, disabled, isRtl = false),
+            DragGesture.NONE,
+            GestureGeometry.dragGestureFor(TouchZone.LEFT_EDGE_STRIP, defaults),
         )
         assertEquals(
-            TapAction.TOGGLE_CHROME,
-            GestureGeometry.tapActionFor(TouchZone.CENTRE_TAP, disabled, isRtl = false),
+            DragGesture.NONE,
+            GestureGeometry.dragGestureFor(TouchZone.RIGHT_EDGE_STRIP, defaults),
         )
     }
 
@@ -94,22 +124,22 @@ class GestureGeometryTest {
     fun `drag gestures are fixed to physical edges`() {
         assertEquals(
             DragGesture.BRIGHTNESS,
-            GestureGeometry.dragGestureFor(TouchZone.LEFT_EDGE_STRIP, defaults),
+            GestureGeometry.dragGestureFor(TouchZone.LEFT_EDGE_STRIP, allEnabled),
         )
         assertEquals(
             DragGesture.FONT_SIZE,
-            GestureGeometry.dragGestureFor(TouchZone.RIGHT_EDGE_STRIP, defaults),
+            GestureGeometry.dragGestureFor(TouchZone.RIGHT_EDGE_STRIP, allEnabled),
         )
         assertEquals(
             DragGesture.NONE,
-            GestureGeometry.dragGestureFor(TouchZone.CENTRE_TAP, defaults),
+            GestureGeometry.dragGestureFor(TouchZone.CENTRE_TAP, allEnabled),
         )
     }
 
     @Test
     fun `disabled drags resolve to none`() {
-        val noBrightness = defaults.copy(brightnessDragEnabled = false)
-        val noFontSize = defaults.copy(fontSizeDragEnabled = false)
+        val noBrightness = allEnabled.copy(brightnessDragEnabled = false)
+        val noFontSize = allEnabled.copy(fontSizeDragEnabled = false)
         assertEquals(
             DragGesture.NONE,
             GestureGeometry.dragGestureFor(TouchZone.LEFT_EDGE_STRIP, noBrightness),

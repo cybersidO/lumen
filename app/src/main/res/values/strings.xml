@@ -46,6 +46,9 @@
     <string name="reader_toc_empty">This book has no table of contents.</string>
     <string name="reader_typography">Text settings</string>
     <string name="reader_progress">%1$d%% through the book</string>
+    <string name="reader_page_position">Page %1$d of %2$d · %3$d%%</string>
+    <string name="reader_page_total">%1$d pages · %2$d%%</string>
+    <string name="reader_notes_split">%1$d pages of text, %2$d of notes</string>
     <string name="reader_back_to_library">Back to library</string>
     <string name="reader_font">Font</string>
     <string name="reader_font_size">Size</string>
@@ -126,8 +129,11 @@
     <string name="gesture_edge_width">Edge strip width</string>
     <string name="gesture_tap_width">Tap zone width</string>
     <string name="gesture_brightness_toggle">Brightness drag (left edge)</string>
+    <string name="gesture_brightness_hint">Off by default: it fired while scrolling and changed the brightness by accident.</string>
     <string name="gesture_font_size_toggle">Font size drag (right edge)</string>
-    <string name="gesture_tap_turn_toggle">Tap to turn pages</string>
+    <string name="gesture_font_size_hint">Off by default: it fired while scrolling and resized the text by accident. The Aa button changes size deliberately.</string>
+    <string name="gesture_tap_turn_toggle">Tap the sides to turn pages</string>
+    <string name="gesture_tap_turn_hint">Off by default: with scrolling on, a tap near an edge jumped a chapter. While it is off, a tap anywhere shows the bars.</string>
     <string name="gesture_two_finger_toggle">Two-finger tap toggles theme</string>
     <string name="gesture_two_finger_hint">Off by default: it can collide with pinch-zoom and with TalkBack gestures.</string>
     <string name="zone_desc_hint">Tap a zone above to see what it does.</string>

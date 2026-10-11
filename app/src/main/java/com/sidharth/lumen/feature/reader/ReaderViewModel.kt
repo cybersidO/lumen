@@ -69,6 +69,10 @@ data class ReaderChromeState(
     val chapterTitle: String? = null,
     /** "~12 min left in this chapter", once the reader's pace has settled; null until then. */
     val chapterMinutesLeft: Int? = null,
+    /** Readium's synthetic page number for the current position; null before the first. */
+    val page: Int? = null,
+    /** How long the book is, and how much of that is notes. Empty until positions load. */
+    val pages: BookPages = BookPages.Empty,
 )
 
 enum class IndicatorKind { BRIGHTNESS, FONT_SIZE }
@@ -165,6 +169,9 @@ class ReaderViewModel @Inject constructor(
                         // in onLocatorChanged rather than cached forever.
                         positionsByResource = runCatching { publication.positionsByReadingOrder() }
                             .getOrDefault(emptyList())
+                        _chrome.value = _chrome.value.copy(
+                            pages = bookPages(publication, positionsByResource),
+                        )
                     }
                 }
                 .onFailure { error ->
@@ -194,6 +201,9 @@ class ReaderViewModel @Inject constructor(
             progressFraction = progress.coerceIn(0f, 1f),
             chapterTitle = locator.title?.takeIf { it.isNotBlank() } ?: _chrome.value.chapterTitle,
             chapterMinutesLeft = chapterMinutesLeft(locator),
+            // Readium leaves the position out of some locators (a restore, a repagination);
+            // the last real one is kept rather than blanking the readout mid-read.
+            page = position ?: _chrome.value.page,
         )
         viewModelScope.launch(ioDispatcher) {
             bookDao.saveProgress(
@@ -220,6 +230,34 @@ class ReaderViewModel @Inject constructor(
         if (index < 0) return null
         return pace.minutesFor(resource.size - index - 1)
     }
+
+    /**
+     * Readium's positions and links, reduced to what [PageCounter] needs.
+     *
+     * The TOC supplies the titles because EPUB file names are usually generated —
+     * `split_014.xhtml` says nothing, while the entry pointing at it says "Notes". Where
+     * several entries point into one resource the first wins, so a chapter containing a
+     * nested note anchor stays a chapter.
+     */
+    private fun bookPages(publication: Publication, positions: List<List<Locator>>): BookPages {
+        val tocTitles = _tableOfContents.value
+            .groupBy { resourceHref(it.link) }
+            .mapValues { (_, entries) -> entries.first().title }
+        return PageCounter.count(
+            publication.readingOrder.mapIndexed { index, link ->
+                val href = resourceHref(link)
+                ResourcePages(
+                    href = href,
+                    // positionsByReadingOrder() is one list per reading-order resource,
+                    // in order, which is what makes the index safe to pair up.
+                    pageCount = positions.getOrNull(index)?.size ?: 0,
+                    title = tocTitles[href] ?: link.title,
+                )
+            },
+        )
+    }
+
+    private fun resourceHref(link: Link): String = link.url().toString().substringBefore('#')
 
     // --- reading sessions (M10 stats) ----------------------------------------------------
 

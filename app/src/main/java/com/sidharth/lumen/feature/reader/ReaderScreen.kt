@@ -98,6 +98,8 @@ const val ReaderAutoScrollButtonTag = "reader_auto_scroll_button"
 const val ReaderReadAloudButtonTag = "reader_read_aloud_button"
 const val ReaderSearchButtonTag = "reader_search_button"
 const val ReaderChapterTimeTag = "reader_chapter_time"
+const val ReaderPageCountTag = "reader_page_count"
+const val ReaderNotesPagesTag = "reader_notes_pages"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -377,6 +379,8 @@ fun ReaderScreen(
                     progressFraction = chrome.progressFraction,
                     chapterMinutesLeft = chrome.chapterMinutesLeft
                         .takeIf { reading.showChapterTimeLeft },
+                    page = chrome.page,
+                    pages = chrome.pages,
                     onBack = onBack,
                     onOpenToc = { showToc = true },
                     onOpenTypography = { showTypography = true },
@@ -612,6 +616,10 @@ private fun ReaderChrome(
     title: String,
     progressFraction: Float,
     chapterMinutesLeft: Int?,
+    /** Current synthetic page; null until the first locator arrives. */
+    page: Int?,
+    /** Length of the book and its notes; [BookPages.Empty] until positions are computed. */
+    pages: BookPages,
     onBack: () -> Unit,
     onOpenToc: () -> Unit,
     onOpenTypography: () -> Unit,
@@ -722,13 +730,27 @@ private fun ReaderChrome(
                     modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
+                    val percent = (progressFraction * 100).toInt().coerceIn(0, 100)
                     Text(
-                        text = stringResource(
-                            R.string.reader_progress,
-                            (progressFraction * 100).toInt().coerceIn(0, 100),
-                        ),
+                        // The page count needs the positions, which take a moment to
+                        // compute on a long book, so each line degrades to the next:
+                        // page of total, then total alone, then the percentage alone.
+                        text = when {
+                            pages.total > 0 && page != null -> stringResource(
+                                R.string.reader_page_position,
+                                page,
+                                pages.total,
+                                percent,
+                            )
+
+                            pages.total > 0 ->
+                                stringResource(R.string.reader_page_total, pages.total, percent)
+
+                            else -> stringResource(R.string.reader_progress, percent)
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag(ReaderPageCountTag),
                     )
                     // Only once the pace is measured — never the default guess (M10).
                     if (chapterMinutesLeft != null) {
@@ -743,6 +765,21 @@ private fun ReaderChrome(
                             modifier = Modifier.testTag(ReaderChapterTimeTag),
                         )
                     }
+                }
+                // Shown only when the book keeps its notes in their own section: eighty
+                // pages of endnotes is not eighty pages of reading, and the progress bar
+                // alone cannot say so.
+                if (pages.hasNotes) {
+                    Text(
+                        text = stringResource(
+                            R.string.reader_notes_split,
+                            pages.mainText,
+                            pages.notes,
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp).testTag(ReaderNotesPagesTag),
+                    )
                 }
             }
         }

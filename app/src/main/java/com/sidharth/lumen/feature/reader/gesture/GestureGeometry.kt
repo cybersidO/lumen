@@ -68,9 +68,10 @@ object GestureGeometry {
      * resolved separately in [dragGestureFor].
      */
     fun tapActionFor(zone: TouchZone, settings: GestureSettings, isRtl: Boolean): TapAction {
-        if (!settings.tapToTurnPageEnabled) {
-            return if (zone == TouchZone.CENTRE_TAP) TapAction.TOGGLE_CHROME else TapAction.NONE
-        }
+        // With page turning off, the whole page toggles the chrome rather than leaving
+        // dead strips down both sides: a tap that does nothing reads as the app ignoring
+        // you, and the bar is the only thing a tap has left to do.
+        if (!settings.tapToTurnPageEnabled) return TapAction.TOGGLE_CHROME
         return when (zone) {
             TouchZone.LEFT_EDGE_STRIP, TouchZone.LEFT_TAP ->
                 if (isRtl) TapAction.NEXT_PAGE else TapAction.PREVIOUS_PAGE

@@ -51,7 +51,12 @@ class PublicationRepository @Inject constructor(
                     ReaderException("Lumen couldn't read this file as an EPUB."),
                 )
 
-            val publication = publicationOpener.open(asset, allowUserInteraction = false)
+            val publication = publicationOpener.open(
+                asset = asset,
+                allowUserInteraction = false,
+                // Lumen counts pages by the book's own length, not by how well it zipped.
+                onCreatePublication = { useLumenPagePositions() },
+            )
                 .getOrNull()
                 ?: run {
                     asset.close()

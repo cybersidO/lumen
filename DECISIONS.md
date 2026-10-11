@@ -601,3 +601,57 @@ Verified on device: six full vertical swipes and six short flicks left the resou
 `split_003`; a tap at the top of a chapter scrolled one screen (1097 of 1700 rows redrawn)
 and stayed in `split_004`; a tap at the bottom moved on to the next chapter, which is what
 it should do.
+
+## 2026-10-11 — Swiping only scrolls, and a book finally says how long it is
+Three requests from the owner after living with 1.5.2, and they turn out to be one
+decision: **a gesture should do the one thing it looks like it does.**
+
+**Tapping the sides no longer turns the page, and the edge strips no longer own a vertical
+drag.** The brightness strip (left 15%) and the font-size strip (right 15%) were the
+remaining way a swipe up or down could change something other than the scroll position —
+the owner's font size and brightness kept moving on their own — and tapping near an edge
+still jumped a chapter whenever the tap-to-turn setting was on. All three now default off.
+They stay in Settings → Reading gestures for anyone who wants them, each labelled with why
+it is off; this is a change of default, not a removal, because paged mode still has a
+legitimate use for tap-to-turn.
+
+With tap-to-turn off, a tap *anywhere* shows the bars rather than only in the middle
+third. A tap that does nothing reads as the app ignoring you, and showing the chrome is the
+only thing a tap has left to do.
+
+A changed default reaches new installs only — `updateGestures` writes every key at once, so
+anyone who has ever opened that screen already has `true` on disk. `applyGestureDefaultsV3`
+rewrites exactly those three keys, once, and records that it ran, in the same shape as
+1.4.0's `applyReadingDefaultsV2`. Verified on the device's own DataStore file:
+`gesture_defaults_v3_applied` set, all three gesture keys `0`.
+
+**Page counts (M14).** The reader now shows "Page 120 of 354" and, for books that keep
+their notes in their own section, "296 pages of text, 58 of notes". The second number is
+the one the owner actually asked for: a history with eighty pages of endnotes is not a
+four-hundred-page read, and a progress bar that counts the notes says you have further to
+go than you do.
+
+Two judgement calls behind it:
+
+*What a page is.* Readium's recommended strategy measures each file's **compressed** size,
+which makes the page count a fact about how the EPUB was zipped rather than about the book
+— the same text packed tighter reports fewer pages, and a four-chapter test book came out
+as four pages. Lumen now counts by original length at 2 KB per page, which is a property
+of the book and identical on every device. It lands close to print: The Martian comes out
+at 358 against a printed 369. It is still an estimate; EPUB has no page numbers of its own
+unless the publisher ships a page map, and most do not. Side effect worth knowing: the
+"pages/hr" figure in stats is in these pages, so it is not comparable with numbers recorded
+before 1.6.0.
+
+*What counts as notes.* EPUB has no required marker for "this file is the endnotes", so
+`PageCounter` matches the table-of-contents title first and the file name second, against
+plurals only — `Notes`, `Endnotes`, `Footnotes` — and never a bare "Note", because "A Note
+on the Translation" is front matter and counting it would inflate the very number the
+feature exists to report. Books that put their notes in popup `aside`s inside each chapter
+correctly report none: those notes occupy no pages of their own.
+
+The hook that installs the page-length strategy has to be passed to
+`PublicationOpener.open`, not to its constructor. In Readium 3.3 the constructor's
+`onCreatePublication` is never invoked on open — the page count stayed stubbornly on the
+compressed-length number until this moved to the call site, which a log line on the device
+proved rather than guessed.

@@ -21,6 +21,7 @@ Status key: ☐ not started · ◐ in progress · ☑ done and verified · ✗ b
 | M13 | Search inside the book, full screen, daily goal ring → 1.5.0 | ☑ | 2026-10-04 · all three measured, not eyeballed |
 | M13.1 | No chapter-jumping swipes in scroll mode → 1.5.1 | ☑ | 2026-10-04 · reported by the owner; scrolling itself proved intact |
 | M13.2 | A drag is never a tap; taps scroll a screen, not a chapter → 1.5.2 | ☑ | 2026-10-04 · two faults behind one report |
+| M14 | Page counts incl. notes; side taps and edge drags off by default → 1.6.0 | ☑ | 2026-10-11 · a gesture does the one thing it looks like it does |
 
 ## Environment (this machine, 2026-08-01)
 
@@ -575,6 +576,55 @@ reported "stuck" every time and would have re-created the exact bug it was fixin
 by reading the code back, not by the tests — which cover the tap/drag distinction, not the
 injected JavaScript. That gap is still there.
 
+## M14 verification — 2026-10-11 (1.6.0)
+
+| Command | Result |
+|---|---|
+| `./gradlew test` | 169 tests, 0 failures (11 new) |
+| `./gradlew connectedAndroidTest` | 71 tests, 0 failures (2 new) |
+| `./gradlew lint` | 0 errors |
+
+Three requests from the owner: a page count including the notes, no more left/right
+tap-to-change-chapter, and font size and brightness that stay where they were put.
+
+**Gestures.** Tap-to-turn, the left-edge brightness drag and the right-edge font-size drag
+all default off now, and `applyGestureDefaultsV3` pushes that to the existing install once.
+Read back off the device's own DataStore file: `gesture_defaults_v3_applied` set, and
+`gesture_brightness_drag`, `gesture_font_size_drag`, `gesture_tap_to_turn` all `0`.
+
+Measured mid-chapter in The Martian, at `chapter05.xhtml` position 50, with the settings
+file hashed before and after:
+
+| Gesture | Resource | Settings file |
+|---|---|---|
+| 6 vertical swipes in the **left** edge strip | `chapter05`, 50 → 52 (it scrolled) | byte-identical |
+| 6 vertical swipes in the **right** edge strip | `chapter05`, 52 → 55 | byte-identical |
+| 6 short centre flicks — the 1.5.2 complaint | `chapter05`, 55 → 56 | byte-identical |
+| tap left third / right third / centre | `chapter05`, 56 throughout | — (each showed the bars) |
+| 8 horizontal swipes, both directions | `chapter05`, 56 | — |
+
+So a swipe scrolls and changes nothing else, and no tap anywhere changes the chapter.
+
+**Page counts.** Predicted independently from each EPUB's own spine and resource lengths,
+then compared with what the app showed:
+
+| Book | Predicted | Shown |
+|---|---|---|
+| The Martian | 358 (print edition: 369) | `Page 1 of 358 · 0%` |
+| Hand-built book with a Notes section | 35 total, 27 text, 8 notes | `Page 1 of 35 · 0%` / `27 pages of text, 8 of notes` |
+
+The notes split needed a book with a separate notes section — none of the three EPUBs on
+the emulator has one, which is itself worth knowing: modern novels put their footnotes in
+popup `aside`s, and for those Lumen correctly reports no notes pages.
+
+**Worth recording:** the first attempt configured the page-length strategy through
+`PublicationOpener`'s constructor. Readium 3.3 never invokes that hook on open, and the
+count stayed on the default compressed-length number — 280 for The Martian instead of 358.
+Found with a log line on the device, not by reasoning about it; the number looked plausible
+enough to have shipped unnoticed. Moving the hook to the `open` call fixed it. Nothing
+tests this wiring: a future Readium upgrade could silently revert it, and only the
+displayed number would show.
+
 ## Open questions for the owner
 - **Install a better text-to-speech engine** — still the open one from 1.4.0. Read-aloud
   sheet → "Open Android's text-to-speech settings". If a good engine still disappoints,
@@ -582,5 +632,11 @@ injected JavaScript. That gap is still there.
 - **Daily goal defaults to 20 minutes.** Settings → Reading has 10/15/20/30/45/60 and Off.
 - **Full screen is on by default.** Swipe down from the top to see the clock without
   leaving the page; the toggle is in Settings → Reading.
+- **Three gestures are off by default since 1.6.0** — tapping the sides to turn pages, the
+  left-edge brightness drag, the right-edge font-size drag. All three are in Settings →
+  Reading gestures if any of them is wanted back.
+- **Page counts are an estimate** (2 KB of markup per page) and are not the publisher's
+  page numbers. "pages/hr" in stats is in these pages, so it does not line up with figures
+  recorded before 1.6.0.
 - Still emulator-only; nothing has been used on a phone.
 - PDF (`m8-pdf`) remains parked. Notes' date-range filter still has no picker UI.

@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.sidharth.lumen.core.settings.GestureSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -54,6 +55,13 @@ class ReaderGestureLayoutTest {
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
         )
         layout.layout(0, 0, width, height)
+        // The shipped defaults turn both edge drags off (1.6.0). The tests below exercise
+        // the mechanism, so they ask for it explicitly; the two named after the defaults
+        // put the settings back and pin what the app actually does out of the box.
+        layout.settings = GestureSettings.Defaults.copy(
+            brightnessDragEnabled = true,
+            fontSizeDragEnabled = true,
+        )
     }
 
     private fun event(action: Int, x: Float, y: Float, downTime: Long, eventTime: Long) =
@@ -280,6 +288,36 @@ class ReaderGestureLayoutTest {
 
         assertFalse(brightnessTouched)
         assertEquals(0, steps)
+        assertTrue(child.received.count { it == MotionEvent.ACTION_MOVE } > 0)
+    }
+
+    // --- what the app does out of the box (1.6.0) ----------------------------------
+
+    @Test
+    fun withTheShippedDefaultsAVerticalDragOnTheLeftEdgeOnlyScrolls() {
+        layout.settings = GestureSettings.Defaults
+        var brightnessTouched = false
+        layout.onBrightnessChange = { brightnessTouched = true }
+
+        // Exactly the complaint: a scroll started under the left thumb.
+        dispatchStream(listOf(50f to 1700f, 50f to 1300f, 50f to 900f))
+
+        assertFalse("a swipe must not change the brightness", brightnessTouched)
+        assertTrue(
+            "the page must still receive the scroll",
+            child.received.count { it == MotionEvent.ACTION_MOVE } > 0,
+        )
+    }
+
+    @Test
+    fun withTheShippedDefaultsAVerticalDragOnTheRightEdgeOnlyScrolls() {
+        layout.settings = GestureSettings.Defaults
+        var steps = 0
+        layout.onFontSizeStep = { steps += it }
+
+        dispatchStream(listOf(950f to 1700f, 950f to 1300f, 950f to 900f))
+
+        assertEquals("a swipe must not resize the text", 0, steps)
         assertTrue(child.received.count { it == MotionEvent.ACTION_MOVE } > 0)
     }
 
